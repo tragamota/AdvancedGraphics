@@ -3,4 +3,4 @@ project(AdvancedGraphics)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(AdvancedGraphics src/main.cpp)
+add_executable(AdvancedGraphics src/main.cpp src/Window.hpp)
