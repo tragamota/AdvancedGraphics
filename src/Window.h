@@ -5,19 +5,13 @@
 #ifndef ADVANCEDGRAPHICS_WINDOW_H
 #define ADVANCEDGRAPHICS_WINDOW_H
 
+#define GLFW_INCLUDE_NONE
+
 #include <iostream>
 #include <any>
 #include <functional>
 
-#ifdef WIN32
-    #include <windows.h>
-
-#elif __APPLE__
-    #import <Cocoa/Cocoa.h>
-#else
-    #error "Platform is not supported"
-
-#endif
+#include <GLFW/glfw3.h>
 
 enum WindowMode {
     WINDOWED,
@@ -26,28 +20,31 @@ enum WindowMode {
 };
 
 typedef struct WindowParameters {
-    int width, height;
-    int minWidth, minHeight;
+    unsigned int width, height;
+    unsigned int minWidth = 0, minHeight = 0;
     bool resizable;
-    std::string_view title;
+    std::unique_ptr<std::string> title;
     WindowMode mode;
-};
+} WindowParameters;
 
 class Window {
 public:
-    Window();
+    explicit Window(const WindowParameters&);
     Window(Window&&) = delete;
     Window(const Window&) = delete;
     ~Window();
 
-    std::any GetNativeWindowHandle();
-    void ChangeTitle(const std::string&);
-    void ChangeWindowMode(const WindowMode);
-    void ShowWindow();
-    void HideWindow();
+//    std::any GetNativeWindowHandle();
+    void ChangeTitle(const std::string&) const;
+    void ChangeWindowMode(WindowMode) const;
+    void ChangeWindowSize(int width, int height) const;
+    void ShowWindow() const;
+    void HideWindow() const;
 
-    void PollEvents();
-    bool ShouldCloseWindow();
+    static inline void PollEvents() {
+        glfwPollEvents();
+    }
+    [[nodiscard]] bool ShouldCloseWindow() const;
 
     std::function<void(int, int)> OnWindowResize;
     std::function<void(int, int)> OnFramebufferResize;
@@ -55,15 +52,11 @@ public:
     std::function<void(int, int, int, int)> OnKeyInput;
     std::function<void(double, double)> OnMouseMovement;
     std::function<void(int, int, int)> OnMousePress;
-    std::function<void(int, double, double)> OnMouseScroll;
+    std::function<void(double, double)> OnMouseScroll;
     std::function<void()> OnClose;
 
 private:
-#ifdef WIN32
-    HWND windowReference;
-#elif __APPLE__
-    NSWindow* windowReference;
-#endif
+    GLFWwindow* m_Window;
 };
 
 #endif //ADVANCEDGRAPHICS_WINDOW_H
