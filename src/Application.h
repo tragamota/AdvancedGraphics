@@ -1,0 +1,14 @@
+//
+// Created by Ian on 17-11-2023.
+//
+
+#ifndef ADVANCEDGRAPHICS_APPLICATION_H
+#define ADVANCEDGRAPHICS_APPLICATION_H
+
+
+class Application {
+
+};
+
+
+#endif //ADVANCEDGRAPHICS_APPLICATION_H

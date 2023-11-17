@@ -1,0 +1,14 @@
+//
+// Created by Ian on 17-11-2023.
+//
+
+#ifndef ADVANCEDGRAPHICS_RENDERCONTEXT_H
+#define ADVANCEDGRAPHICS_RENDERCONTEXT_H
+
+
+class RenderContext {
+
+};
+
+
+#endif //ADVANCEDGRAPHICS_RENDERCONTEXT_H

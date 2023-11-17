@@ -22,7 +22,7 @@ if (APPLE)
     target_include_directories(${PROJECT_NAME} PRIVATE lib/metal-cpp)
 endif (APPLE)
 
-add_executable(AdvancedGraphics src/main.cpp src/Window.h src/Window.cpp)
+add_executable(AdvancedGraphics src/main.cpp src/Window.h src/Window.cpp src/Application.cpp src/Application.h src/utils/constants.h src/utils/constants.h src/RenderContext.cpp src/RenderContext.h)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES})
