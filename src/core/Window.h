@@ -11,7 +11,7 @@
 #include <any>
 #include <functional>
 
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 enum WindowMode {
     WINDOWED,
@@ -40,6 +40,7 @@ public:
     void ChangeWindowSize(int width, int height) const;
     void ShowWindow() const;
     void HideWindow() const;
+    GLFWwindow* GetGLFWWindow();
 
     static inline void PollEvents() {
         glfwPollEvents();

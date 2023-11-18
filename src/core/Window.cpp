@@ -84,6 +84,8 @@ inline void bindWindowCallbacks(GLFWwindow* window) {
 
 
 Window::Window(const WindowParameters& params) {
+    glfwWindowHint(GLFW_VISIBLE, false);
+
     m_Window = glfwCreateWindow(params.width, params.height, params.title->c_str(), nullptr, nullptr);
 
     if(m_Window == nullptr) {
@@ -95,9 +97,9 @@ Window::Window(const WindowParameters& params) {
     }
 
     glfwSetWindowAttrib(m_Window, GLFW_RESIZABLE, params.resizable);
+    glfwSetWindowUserPointer(m_Window, this);
 
     bindWindowCallbacks(m_Window);
-    glfwSetWindowUserPointer(m_Window, this);
 }
 
 Window::~Window()  {
@@ -144,4 +146,8 @@ void Window::ChangeTitle(const std::string& newTitle) const {
 
 void Window::ChangeWindowSize(int width, int height) const {
     glfwSetWindowSize(m_Window, width, height);
+}
+
+GLFWwindow* Window::GetGLFWWindow() {
+    return m_Window;
 }
