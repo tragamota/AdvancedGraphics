@@ -20,7 +20,7 @@ if (WIN32 OR LINUX)
 endif (WIN32 OR LINUX)
 
 if (APPLE)
-    target_include_directories(${PROJECT_NAME} PRIVATE lib/metal-cpp)
+    include_directories(${PROJECT_NAME} lib/metal-cpp)
 endif (APPLE)
 
 add_executable(AdvancedGraphics src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/rendering/RenderDevice.cpp src/rendering/RenderDevice.h src/rendering/RenderDeviceManager.cpp src/rendering/RenderDeviceManager.h src/rendering/RenderDeviceManager.h)
