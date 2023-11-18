@@ -96,6 +96,7 @@ Window::Window(const WindowParameters& params) {
         glfwSetWindowSizeLimits(m_Window, params.minWidth, params.minHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
     }
 
+    glfwSetWindowOpacity(m_Window, 0.95);
     glfwSetWindowAttrib(m_Window, GLFW_RESIZABLE, params.resizable);
     glfwSetWindowUserPointer(m_Window, this);
 
