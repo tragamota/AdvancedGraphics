@@ -13,6 +13,7 @@ find_package(Vulkan REQUIRED)
 # external includes
 add_subdirectory(lib/GLFW lib/imgui)
 include_directories(lib/hwy/include)
+include_directories(${Vulkan_INCLUDE_DIRS})
 
 if (WIN32 OR LINUX)
     include_directories(${PROJECT_NAME} PUBLIC lib/OpenCL/inc)
@@ -22,7 +23,7 @@ if (APPLE)
     target_include_directories(${PROJECT_NAME} PRIVATE lib/metal-cpp)
 endif (APPLE)
 
-add_executable(AdvancedGraphics src/main.cpp src/Window.h src/Window.cpp src/Application.cpp src/Application.h src/utils/constants.h src/utils/constants.h src/RenderContext.cpp src/RenderContext.h)
+add_executable(AdvancedGraphics src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/rendering/RenderDevice.cpp src/rendering/RenderDevice.h src/rendering/RenderDeviceManager.cpp src/rendering/RenderDeviceManager.h src/rendering/RenderDeviceManager.h)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES})
