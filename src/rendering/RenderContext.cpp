@@ -84,7 +84,9 @@ void RenderContext::InitDevices() {
 
     std::vector<const char*> deviceExtensions;
 
+#ifdef  __APPLE__
     deviceExtensions.emplace_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+#endif
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
