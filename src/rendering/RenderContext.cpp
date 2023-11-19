@@ -37,7 +37,7 @@ void RenderContext::CreateInstance() {
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledLayerCount = 0;
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-    createInfo.enabledExtensionCount = (uint32_t) requiredExtensions.size();;
+    createInfo.enabledExtensionCount = (uint32_t) requiredExtensions.size();
     createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
     if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
@@ -52,7 +52,7 @@ void RenderContext::Destroy() {
 }
 
 void RenderContext::InitDevices() {
-    m_DeviceManager.Init(&m_Instance);
+    m_DeviceManager.Init(&m_Instance, &m_Surface);
     m_PhysicalDevice = m_DeviceManager.PrimaryDevice();
 
     float queuePriority = 1.0f;
@@ -65,7 +65,7 @@ void RenderContext::InitDevices() {
         VkDeviceQueueCreateInfo queueCreateInfo{};
 
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value());
+        queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
 
@@ -90,8 +90,10 @@ void RenderContext::InitDevices() {
     vkGetDeviceQueue(m_Device, m_PhysicalDevice->surfaceSupportIndex.value() , 0, &m_PresentationQueue);
 }
 
-void RenderContext::InitWindowSurface(GLFWwindow *window) {
-    glfwCreateWindowSurface(m_Instance, window, nullptr, &m_Surface);
+void RenderContext::InitWindowSurface(GLFWwindow * window) {
+    if (glfwCreateWindowSurface(m_Instance, window, nullptr, &m_Surface) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create render surface!");
+    }
 }
 
 ImGui_ImplVulkan_InitInfo RenderContext::BuildImguiInfoStruct() {

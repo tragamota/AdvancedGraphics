@@ -83,6 +83,7 @@ inline void bindWindowCallbacks(GLFWwindow* window) {
 
 Window::Window(const WindowParameters& params) {
     glfwWindowHint(GLFW_VISIBLE, false);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     m_Window = glfwCreateWindow(params.width, params.height, params.title->c_str(), nullptr, nullptr);
 

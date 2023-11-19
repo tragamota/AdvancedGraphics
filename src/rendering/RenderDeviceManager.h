@@ -18,7 +18,7 @@ public:
     RenderDeviceManager(RenderDeviceManager &other) = delete;
     ~RenderDeviceManager() = default;
 
-    void Init(const VkInstance*);
+    void Init(const VkInstance*, const VkSurfaceKHR* surface);
 //    std::vector<RenderDevice> AllRenderDevices();
     RenderDevice* PrimaryDevice();
 private:

@@ -16,7 +16,14 @@ int main() {
     TraceApplication app;
 
     app.Init();
-    app.Run();
+
+    try {
+        app.Run();
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
     app.ShutDown();
 
     return 0;
