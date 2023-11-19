@@ -11,7 +11,9 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 find_package(Vulkan REQUIRED)
 
 # external includes
-add_subdirectory(lib/GLFW lib/imgui)
+add_subdirectory(lib/GLFW)
+
+include_directories(lib/imgui)
 include_directories(lib/hwy/include)
 include_directories(${Vulkan_INCLUDE_DIRS})
 
@@ -23,7 +25,7 @@ if (APPLE)
     include_directories(${PROJECT_NAME} lib/metal-cpp)
 endif (APPLE)
 
-add_executable(AdvancedGraphics src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/rendering/RenderDevice.cpp src/rendering/RenderDevice.h src/rendering/RenderDeviceManager.cpp src/rendering/RenderDeviceManager.h src/rendering/RenderDeviceManager.h)
+add_executable(AdvancedGraphics src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/rendering/RenderDevice.cpp src/rendering/RenderDevice.h src/rendering/RenderDeviceManager.cpp src/rendering/RenderDeviceManager.h src/rendering/RenderDeviceManager.h src/Interface.cpp src/Interface.h)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES})
