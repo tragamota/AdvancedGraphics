@@ -13,31 +13,18 @@
 #include "RenderDevice.h"
 
 class RenderDeviceManager {
-private:
-    RenderDeviceManager() = default;
-
-    std::vector<RenderDevice> m_devices;
-
 public:
+    RenderDeviceManager() = default;
     RenderDeviceManager(RenderDeviceManager &other) = delete;
+    ~RenderDeviceManager() = default;
 
-    static inline RenderDeviceManager* GetInstance() {
-        if(singleton_ == nullptr){
-            singleton_ = new RenderDeviceManager();
-        }
-
-        return singleton_;
-    }
-
-    void QueryAllSuitableDevices(const VkInstance*);
-//    std::vector<RenderDevice> AllRenderDevices() const;
-//    std::shared_ptr<RenderDevice> PrimaryDevice() const;
-
+    void Init(const VkInstance*);
+//    std::vector<RenderDevice> AllRenderDevices();
+    RenderDevice* PrimaryDevice();
+private:
     bool checkDeviceSuitability(VkPhysicalDevice device);
 
-    void operator=(const RenderDeviceManager&) = delete;
-protected:
-    static RenderDeviceManager* singleton_;
+    std::vector<RenderDevice> m_devices;
 };
 
 #endif //ADVANCEDGRAPHICS_RENDERDEVICEMANAGER_H

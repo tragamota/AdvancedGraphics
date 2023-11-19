@@ -8,7 +8,7 @@
 void TraceApplication::Init() {
     Application::Init();
 
-    context.Init();
+    context.Init(m_MainWindow);
 }
 
 void TraceApplication::OnTick(double elapsedTime) {

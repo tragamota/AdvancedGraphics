@@ -5,43 +5,33 @@
 #include <stdexcept>
 #include <iostream>
 
-#ifdef 
-
-#include <glfw/glfw3native.h.h>
+//#ifdef
+//
+//#include <glfw/glfw3native.h.h>
 
 #include "RenderDeviceManager.h"
 
-RenderDeviceManager* RenderDeviceManager::singleton_ = nullptr;
-
-void RenderDeviceManager::QueryAllSuitableDevices(const VkInstance* renderInstance) {
+void RenderDeviceManager::Init(const VkInstance* renderInstance, const VkSurfaceKHR* surface) {
     uint32_t deviceCount = 0;
-    VkPhysicalDevice selected_device;
+    std::vector<VkPhysicalDevice> physicalDevices;
 
     vkEnumeratePhysicalDevices(*renderInstance, &deviceCount, nullptr);
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
+    physicalDevices.resize(deviceCount);
+    vkEnumeratePhysicalDevices(*renderInstance, &deviceCount, physicalDevices.data());
 
     if (deviceCount == 0) {
         throw std::runtime_error("failed to find GPUs with Vulkan support!");
     }
 
+    for (int i = 0; i < deviceCount; i++) {
+        auto device = physicalDevices[i];
+        auto renderDevice = RenderDevice(device);
 
-    vkEnumeratePhysicalDevices(*renderInstance, &deviceCount, devices.data());
+        renderDevice.ExtractDeviceInfo(surface);
 
-    for (const auto& device : devices) {
-        if(checkDeviceSuitability(device)) {
-            selected_device = device;
-        }
+        m_devices.emplace_back(renderDevice);
     }
 }
-
-//std::vector<RenderDevice> RenderDeviceManager::AllRenderDevices() const {
-//    return nullptr;
-//}
-
-//std::shared_ptr<RenderDevice> RenderDeviceManager::PrimaryDevice() const {
-//    return nullptr;
-//}
 
 bool RenderDeviceManager::checkDeviceSuitability(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
@@ -52,3 +42,9 @@ bool RenderDeviceManager::checkDeviceSuitability(VkPhysicalDevice device) {
 
     return true;
 }
+
+RenderDevice* RenderDeviceManager::PrimaryDevice() {
+    return &m_devices.front();
+}
+
+

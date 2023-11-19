@@ -7,15 +7,28 @@
 
 #include <vulkan/vulkan.h>
 #include <string>
+#include <vector>
+#include <optional>
 
 class RenderDevice {
+public:
     RenderDevice(VkPhysicalDevice);
-    RenderDevice(RenderDevice&) = delete;
+    RenderDevice(RenderDevice&) = default;
+    ~RenderDevice() = default;
 
+    std::optional<std::tuple<uint32_t, uint32_t>> graphicsQueueIndex;
+    std::optional<uint32_t> surfaceSupportIndex;
+
+    void ExtractDeviceInfo(const VkSurfaceKHR*);
+
+    VkPhysicalDevice& GetPhysicalDevice();
+    std::string& GetDeviceName();
+    [[nodiscard]] bool IsDedicatedGpu() const;
 private:
-    std::string deviceName;
-    bool isDedicatedGpu;
+    VkPhysicalDevice m_Device;
 
+    bool m_IsDedicatedGpu;
+    std::string m_DeviceName;
 };
 
 
