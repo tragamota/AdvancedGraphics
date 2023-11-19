@@ -62,9 +62,8 @@ void RenderContext::InitDevices() {
 
     float queuePriority = 1.0f;
 
-    std::set<uint32_t> uniqueQueueFamilies = {std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value()),
-                                              m_PhysicalDevice->surfaceSupportIndex.value()};
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos(uniqueQueueFamilies.size());
+    std::set<uint32_t> uniqueQueueFamilies = {std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value()), m_PhysicalDevice->surfaceSupportIndex.value()};
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
     for (uint32_t queueFamily : uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -73,8 +72,9 @@ void RenderContext::InitDevices() {
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfo.pNext = nullptr;
 
-        queueCreateInfos.emplace_back(queueCreateInfo);
+        queueCreateInfos.push_back(queueCreateInfo);
     }
 
     VkPhysicalDeviceFeatures deviceFeatures{};
