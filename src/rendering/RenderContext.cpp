@@ -7,6 +7,10 @@
 #include "RenderContext.h"
 #include "RenderDeviceManager.h"
 
+const std::vector<const char*> validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+};
+
 void RenderContext::Init(std::shared_ptr<Window> window) {
     CreateInstance();
     InitWindowSurface(window->GetGLFWWindow());
@@ -35,7 +39,8 @@ void RenderContext::CreateInstance() {
 
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = 0;
+    createInfo.enabledLayerCount = validationLayers.size();
+    createInfo.ppEnabledLayerNames = validationLayers.data();
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     createInfo.enabledExtensionCount = (uint32_t) requiredExtensions.size();
     createInfo.ppEnabledExtensionNames = requiredExtensions.data();
@@ -78,7 +83,7 @@ void RenderContext::InitDevices() {
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.pEnabledFeatures = &deviceFeatures;
-    createInfo.queueCreateInfoCount = 1;
+    createInfo.queueCreateInfoCount = queueCreateInfos.size();
     createInfo.enabledExtensionCount = 0;
     createInfo.enabledLayerCount = 0;
 
