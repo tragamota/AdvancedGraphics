@@ -23,6 +23,7 @@ private:
     VkQueue m_PresentationQueue;
 
     VkSurfaceKHR m_Surface;
+    VkSwapchainKHR m_SwapChain;
 
     RenderDevice* m_PhysicalDevice;
     RenderDeviceManager m_DeviceManager;
@@ -30,6 +31,7 @@ private:
     void CreateInstance();
     void InitWindowSurface(GLFWwindow*);
     void InitDevices();
+    void InitSwapChain();
     ImGui_ImplVulkan_InitInfo BuildImguiInfoStruct();
 };
 

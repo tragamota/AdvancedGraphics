@@ -20,6 +20,10 @@ public:
     std::optional<std::tuple<uint32_t, uint32_t>> graphicsQueueIndex;
     std::optional<uint32_t> surfaceSupportIndex;
 
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    std::vector<VkSurfaceFormatKHR> surfaceFormats;
+    std::vector<VkPresentModeKHR> presentModes;
+
     void ExtractDeviceInfo(const VkSurfaceKHR*);
 
     VkPhysicalDevice& GetPhysicalDevice();
@@ -30,6 +34,8 @@ private:
 
     bool m_IsDedicatedGpu;
     std::string m_DeviceName;
+
+    void QuerySwapChainSupport(const VkSurfaceKHR *);
 };
 
 

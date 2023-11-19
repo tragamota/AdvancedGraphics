@@ -50,7 +50,7 @@ void RenderDevice::ExtractDeviceInfo(const VkSurfaceKHR *surface) {
 
         if (hasGraphicsBit) {
             if (!graphicsQueueIndex.has_value()) {
-                graphicsQueueIndex = {i, properties.queueCount};;
+                graphicsQueueIndex = {i, properties.queueCount};
             }
         }
 
@@ -59,6 +59,26 @@ void RenderDevice::ExtractDeviceInfo(const VkSurfaceKHR *surface) {
                 surfaceSupportIndex = i;
             }
         }
+    }
+
+    QuerySwapChainSupport(surface);
+}
+
+void RenderDevice::QuerySwapChainSupport(const VkSurfaceKHR* surface) {
+    uint32_t presentModeCount, formatCount;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_Device, *surface, &surfaceCapabilities);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_Device, *surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_Device, *surface, &presentModeCount, nullptr);
+
+    if (formatCount != 0) {
+        surfaceFormats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_Device, *surface, &formatCount, surfaceFormats.data());
+    }
+
+    if (presentModeCount != 0) {
+        presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_Device, *surface, &presentModeCount, presentModes.data());
     }
 }
 

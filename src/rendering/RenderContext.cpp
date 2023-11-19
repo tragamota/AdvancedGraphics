@@ -13,6 +13,10 @@ const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
 };
 
+const std::vector<const char*> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 void RenderContext::Init(std::shared_ptr<Window> window) {
     CreateInstance();
     InitWindowSurface(window->GetGLFWWindow());
@@ -82,8 +86,6 @@ void RenderContext::InitDevices() {
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
-    std::vector<const char*> deviceExtensions;
-
 #ifdef  __APPLE__
     deviceExtensions.emplace_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
 #endif
@@ -111,6 +113,11 @@ void RenderContext::InitWindowSurface(GLFWwindow * window) {
         throw std::runtime_error("failed to create render surface!");
     }
 }
+
+void RenderContext::InitSwapChain() {
+
+}
+
 
 ImGui_ImplVulkan_InitInfo RenderContext::BuildImguiInfoStruct() {
     return {};
