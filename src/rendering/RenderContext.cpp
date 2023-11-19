@@ -7,13 +7,15 @@
 #include "RenderContext.h"
 #include "RenderDeviceManager.h"
 
+#ifdef __APPLE__
 #include <vulkan/vulkan_beta.h>
+#endif
 
-const std::vector<const char*> validationLayers = {
+const std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
 };
 
-const std::vector<const char*> deviceExtensions = {
+const std::vector<const char *> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
@@ -21,6 +23,7 @@ void RenderContext::Init(std::shared_ptr<Window> window) {
     CreateInstance();
     InitWindowSurface(window->GetGLFWWindow());
     InitDevices();
+    InitSwapChain();
 }
 
 void RenderContext::CreateInstance() {
@@ -69,10 +72,11 @@ void RenderContext::InitDevices() {
 
     float queuePriority = 1.0f;
 
-    std::set<uint32_t> uniqueQueueFamilies = {std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value()), m_PhysicalDevice->surfaceSupportIndex.value()};
+    std::set<uint32_t> uniqueQueueFamilies = {std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value()),
+                                              m_PhysicalDevice->surfaceSupportIndex.value()};
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
-    for (uint32_t queueFamily : uniqueQueueFamilies) {
+    for (uint32_t queueFamily: uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo{};
 
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -105,10 +109,10 @@ void RenderContext::InitDevices() {
     }
 
     vkGetDeviceQueue(m_Device, std::get<0>(m_PhysicalDevice->graphicsQueueIndex.value()), 0, &m_GraphicsQueue);
-    vkGetDeviceQueue(m_Device, m_PhysicalDevice->surfaceSupportIndex.value() , 0, &m_PresentationQueue);
+    vkGetDeviceQueue(m_Device, m_PhysicalDevice->surfaceSupportIndex.value(), 0, &m_PresentationQueue);
 }
 
-void RenderContext::InitWindowSurface(GLFWwindow * window) {
+void RenderContext::InitWindowSurface(GLFWwindow *window) {
     if (glfwCreateWindowSurface(m_Instance, window, nullptr, &m_Surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create render surface!");
     }
