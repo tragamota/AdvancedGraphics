@@ -7,6 +7,8 @@
 #include "RenderContext.h"
 #include "RenderDeviceManager.h"
 
+#include <vulkan/vulkan_beta.h>
+
 const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
 };
@@ -31,6 +33,7 @@ void RenderContext::CreateInstance() {
     }
 
     requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    requiredExtensions.emplace_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Advanced Graphics";
@@ -41,7 +44,7 @@ void RenderContext::CreateInstance() {
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledLayerCount = validationLayers.size();
     createInfo.ppEnabledLayerNames = validationLayers.data();
-    createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     createInfo.enabledExtensionCount = (uint32_t) requiredExtensions.size();
     createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
@@ -79,6 +82,10 @@ void RenderContext::InitDevices() {
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
+    std::vector<const char*> deviceExtensions;
+
+    deviceExtensions.emplace_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -86,6 +93,8 @@ void RenderContext::InitDevices() {
     createInfo.queueCreateInfoCount = queueCreateInfos.size();
     createInfo.enabledExtensionCount = 0;
     createInfo.enabledLayerCount = 0;
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    createInfo.enabledExtensionCount = deviceExtensions.size();
 
     if (vkCreateDevice(m_PhysicalDevice->GetPhysicalDevice(), &createInfo, nullptr, &m_Device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
