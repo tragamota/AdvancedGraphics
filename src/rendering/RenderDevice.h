@@ -13,7 +13,8 @@
 class RenderDevice {
 public:
     RenderDevice(VkPhysicalDevice);
-    RenderDevice(RenderDevice&) = default;
+    RenderDevice(const RenderDevice&) = default;
+    RenderDevice(RenderDevice&& other) = default;
     ~RenderDevice() = default;
 
     std::optional<std::tuple<uint32_t, uint32_t>> graphicsQueueIndex;
