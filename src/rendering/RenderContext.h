@@ -16,14 +16,18 @@ public:
     void Init(std::shared_ptr<Window> window);
     void Destroy();
 private:
-    VkInstance m_Instance;
-    VkDevice m_Device;
+    VkInstance m_Instance = VK_NULL_HANDLE;
+    VkDevice m_Device = VK_NULL_HANDLE;
 
-    VkQueue m_GraphicsQueue;
-    VkQueue m_PresentationQueue;
+    VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
+    VkQueue m_PresentationQueue = VK_NULL_HANDLE;
 
-    VkSurfaceKHR m_Surface;
-    VkSwapchainKHR m_SwapChain;
+    VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
+    VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
+
+    VkSurfaceFormatKHR m_SurfaceFormat;
+    VkPresentModeKHR m_PresentMode;
+    VkExtent2D m_SurfaceExtent;
 
     RenderDevice* m_PhysicalDevice;
     RenderDeviceManager m_DeviceManager;
