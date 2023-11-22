@@ -4,17 +4,19 @@
 
 #include "Interface.h"
 
-void Interface::Init(std::shared_ptr<Window> window) {
+void Interface::Init(const std::shared_ptr<Window>& window, VkPhysicalDevice* physicalDevice, VkDevice* device, uint32_t queueFamilyIndex, VkQueue* queue) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
-    ImGui_ImplVulkan_InitInfo init_info = {
+    ImGui_ImplVulkan_InitInfo init_info = {};
 
-    };
+    init_info.
+
+    init_info.Allocator = VK_NULL_HANDLE;
 
     ImGui_ImplGlfw_InitForVulkan(window->GetGLFWWindow(), false);
-    ImGui_ImplVulkan_Init(init_info, nullptr);
+    ImGui_ImplVulkan_Init(init_info);
 
     ImGui::StyleColorsDark();
 }

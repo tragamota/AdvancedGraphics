@@ -13,7 +13,7 @@
 
 class Interface {
 public:
-    void Init(std::shared_ptr<Window> window);
+    void Init(const std::shared_ptr<Window> window);
     void Destroy();
 
     void BeginFrame();
