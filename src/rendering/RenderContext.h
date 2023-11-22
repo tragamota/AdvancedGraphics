@@ -25,6 +25,9 @@ private:
     VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
     VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
 
+    std::vector<VkImage> m_SwapChainImages;
+    std::vector<VkImageView> m_SwapChainImageViews;
+
     VkSurfaceFormatKHR m_SurfaceFormat;
     VkPresentModeKHR m_PresentMode;
     VkExtent2D m_SurfaceExtent;
@@ -36,6 +39,7 @@ private:
     void InitWindowSurface(GLFWwindow*);
     void InitDevices();
     void InitSwapChain();
+    void InitImageViews();
     ImGui_ImplVulkan_InitInfo BuildImguiInfoStruct();
 };
 
