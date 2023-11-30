@@ -3,10 +3,17 @@ project(AdvancedGraphics)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(DAWN_FETCH_DEPENDENCIES ON)
+set(DAWN_USE_GLFW OFF)
+set(DAWN_BUILD_SAMPLES OFF)
+set(TINT_BUILD_CMD_TOOLS OFF)
+
 #GLFW build commands
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(lib/dawn EXCLUDE_FROM_ALL)
 
 find_package(Vulkan REQUIRED)
 
@@ -30,6 +37,7 @@ add_executable(AdvancedGraphics src/main.cpp src/core/Window.h src/core/Window.c
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} glfw)
+target_link_libraries(${PROJECT_NAME} private webgpu_cpp webgpu_dawn)
 
 if (WIN32)
     target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/OpenCL/lib/OpenCL.lib)
@@ -38,12 +46,12 @@ if (WIN32)
 endif (WIN32)
 
 if (APPLE)
-    find_library(METAL Metal REQUIRED)
-    find_library(FOUNDATION Foundation REQUIRED)
-    find_library(QUARTZCORE QuartzCore REQUIRED)
-
-    target_link_libraries(${PROJECT_NAME} ${METAL})
-    target_link_libraries(${PROJECT_NAME} ${FOUNDATION})
-    target_link_libraries(${PROJECT_NAME} ${QUARTZCORE})
+#    find_library(METAL Metal REQUIRED)
+#    find_library(FOUNDATION Foundation REQUIRED)
+#    find_library(QUARTZCORE QuartzCore REQUIRED)
+#
+#    target_link_libraries(${PROJECT_NAME} ${METAL})
+#    target_link_libraries(${PROJECT_NAME} ${FOUNDATION})
+#    target_link_libraries(${PROJECT_NAME} ${QUARTZCORE})
 endif (APPLE)
 
