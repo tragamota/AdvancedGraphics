@@ -9,7 +9,7 @@
 *.slo
 *.lo
 *.o
-*.obj
+
 
 # Precompiled Headers
 *.gch
@@ -221,3 +221,6 @@ fabric.properties
 !.idea/runConfigurations
 
 # End of https://www.toptal.com/developers/gitignore/api/clion+all
+tmpl8rt_IGAD-main/.vs/
+
+tmpl8rt_IGAD-main/2. Whitted/x64/
