@@ -8,7 +8,6 @@
 #include <vector>
 #include <memory>
 
-#include <vulkan/vulkan.h>
 
 #include "RenderDevice.h"
 
@@ -18,11 +17,11 @@ public:
     RenderDeviceManager(RenderDeviceManager &other) = delete;
     ~RenderDeviceManager() = default;
 
-    void Init(const VkInstance*, const VkSurfaceKHR* surface);
+    void Init();
 //    std::vector<RenderDevice> AllRenderDevices();
     RenderDevice* PrimaryDevice();
 private:
-    bool checkDeviceSuitability(VkPhysicalDevice device);
+    bool checkDeviceSuitability();
 
     std::vector<RenderDevice> m_devices;
 };
