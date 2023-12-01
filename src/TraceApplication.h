@@ -8,6 +8,7 @@
 
 #include "core/Application.h"
 #include "rendering/RenderContext.h"
+#include "Interface.h"
 
 class TraceApplication : public Application {
 public:
@@ -15,7 +16,8 @@ public:
     void OnTick(double elapsedTime) override;
     void ShutDown() override;
 private:
-    RenderContext context;
+    RenderContext m_Context;
+    Interface m_Interface;
 };
 
 
