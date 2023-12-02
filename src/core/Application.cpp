@@ -17,7 +17,6 @@ void Application::Init() {
         std::make_unique<std::string>("Advanced Graphics"),
         WINDOWED});
 
-    m_MainWindow->ShowWindow();
 }
 
 void Application::ShutDown() {
@@ -27,7 +26,7 @@ void Application::ShutDown() {
 void Application::Run() {
     double elapsedTime = 0;
 
-//    m_MainWindow->ShowWindow();
+    m_MainWindow->ShowWindow();
 
     while (!m_MainWindow->ShouldCloseWindow()) {
         elapsedTime = m_Timer.Elapsed();
