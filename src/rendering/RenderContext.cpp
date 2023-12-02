@@ -4,30 +4,29 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <fstream>
+#include <sstream>
 
 #include "RenderContext.h"
 
 #include "../misc/glfw3webgpu.h"
 
-void RenderContext::Init(std::shared_ptr<Window> window) {
+void RenderContext::Init(const std::shared_ptr<Window>& window) {
+    int width, height;
+    glfwGetFramebufferSize(window->GetGLFWWindow(), &width, &height);
+
     CreateInstance();
     InitWindowSurface(window->GetGLFWWindow());
     InitAdapter();
     InitDevices();
-
-    auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
-        std::cout << "Uncaptured device error: type " << type;
-        if (message) std::cout << " (" << message << ")";
-        std::cout << std::endl;
-    };
-
-    wgpuDeviceSetUncapturedErrorCallback(m_Device, onDeviceError, nullptr);
-
-    InitSwapChain(window->GetGLFWWindow());
-    InitImageViews();
+    InitSwapChain(width, height);
 }
 
 void RenderContext::Destroy() {
+    wgpuTextureViewRelease(m_TextureView);
+    wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
+    wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
+
     wgpuSwapChainRelease(m_SwapChain);
     wgpuSurfaceRelease(m_Surface);
     wgpuDeviceRelease(m_Device);
@@ -35,8 +34,8 @@ void RenderContext::Destroy() {
     wgpuInstanceRelease(m_Instance);
 }
 
-void RenderContext::RegisterInterface(std::shared_ptr<Window> window, Interface *interface) {
-    interface->Init(window, &m_Device, WGPUTextureFormat_RGBA8Unorm);
+void RenderContext::RegisterInterface(const std::shared_ptr<Window>& window, Interface *interface) {
+    interface->Init(window, &m_Device, WGPUTextureFormat_BGRA8Unorm);
 }
 
 void RenderContext::CreateInstance() {
@@ -76,7 +75,7 @@ void RenderContext::InitAdapter() {
         if (status == WGPURequestAdapterStatus_Error ||
             status == WGPURequestAdapterStatus_Unknown) {
             context->m_DawnError = true;
-            context->m_DawnErrorMessage = message;
+            context->m_DawnErrorMessage = std::string(message);
         }
     };
 
@@ -88,9 +87,11 @@ void RenderContext::InitAdapter() {
 }
 
 void RenderContext::InitDevices() {
-    WGPUSupportedLimits limits;
-    WGPUAdapterProperties properties;
-    WGPUDeviceDescriptor descriptor = {};
+    WGPUDeviceDescriptor descriptor = {
+            .requiredFeatureCount = 0,
+            .requiredFeatures = nullptr,
+            .deviceLostCallback = nullptr
+    };
 
     WGPURequestDeviceCallback callback = [](WGPURequestDeviceStatus status, WGPUDevice device, char const *message,
                                               void *ptr) {
@@ -103,7 +104,7 @@ void RenderContext::InitDevices() {
 
         if (status == WGPURequestDeviceStatus_Error) {
             context->m_DawnError = true;
-            context->m_DawnErrorMessage = message;
+            context->m_DawnErrorMessage = std::string(message);
         }
     };
 
@@ -118,41 +119,43 @@ void RenderContext::InitDevices() {
     if (m_Queue == nullptr) {
         throw std::runtime_error("Requesting Queue failed");
     }
+
+    auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
+        std::cout << "Uncaptured device error: type " << type;
+
+        if (message)
+            std::cout << " (" << message << ")";
+
+        std::cout << std::endl;
+    };
+
+    wgpuDeviceSetUncapturedErrorCallback(m_Device, onDeviceError, nullptr);
 }
 
 
-void RenderContext::InitSwapChain(GLFWwindow *window) {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
+void RenderContext::InitSwapChain(int width, int height) {
     WGPUSwapChainDescriptor swapChainDesc = {
-            .usage = WGPUTextureUsage_RenderAttachment,
-            .format = WGPUTextureFormat_BGRA8Unorm,
-            .width = static_cast<uint32_t>(width),
-            .height = static_cast<uint32_t>(height),
-            .presentMode = WGPUPresentMode_Fifo
+        .usage = WGPUTextureUsage_RenderAttachment,
+        .format = WGPUTextureFormat_BGRA8Unorm,
+        .width = static_cast<uint32_t>(width),
+        .height = static_cast<uint32_t>(height),
+        .presentMode = WGPUPresentMode_Fifo
     };
 
     m_SwapChain = wgpuDeviceCreateSwapChain(m_Device, m_Surface, &swapChainDesc);
 }
 
-void RenderContext::InitImageViews() {
-
-}
-
 void RenderContext::Present() {
     wgpuSwapChainPresent(m_SwapChain);
-
-    wgpuTextureViewRelease(m_TextureView);
 }
 
 WGPURenderPassEncoder RenderContext::GetRenderPass() {
-    if(m_CurrentCommandEncoder) {
+    m_TextureView = wgpuSwapChainGetCurrentTextureView(m_SwapChain);
+
+    if(m_CurrentCommandEncoder  && m_CurrentCommandEncoder) {
         wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
         wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
     }
-
-    m_TextureView = wgpuSwapChainGetCurrentTextureView(m_SwapChain);
 
     WGPURenderPassColorAttachment attachment{
             .view = m_TextureView,
@@ -166,31 +169,42 @@ WGPURenderPassEncoder RenderContext::GetRenderPass() {
             .colorAttachments = &attachment
     };
 
-    WGPUCommandEncoderDescriptor commandEncoderDescriptor = {
-    };
+    WGPUCommandEncoderDescriptor commandEncoderDescriptor = {};
 
     m_CurrentCommandEncoder = wgpuDeviceCreateCommandEncoder(m_Device, &commandEncoderDescriptor);
     m_CurrentRenderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_CurrentCommandEncoder, &renderPassDesc);
 
+    wgpuTextureViewRelease(m_TextureView);
+
     return m_CurrentRenderPassEncoder;
 }
 
-const char *RenderContext::ReadShaderCode(const char *) {
-    return nullptr;
+std::string RenderContext::ReadShaderCode(const char * filePath) {
+    std::stringstream buffer;
+    std::ifstream inputFile(filePath);
+
+    if (!inputFile.is_open()) {
+        throw std::exception("Shader file doesn't exist");
+    }
+
+    buffer << inputFile.rdbuf();
+
+    inputFile.close();
+
+    return buffer.str();
 }
 
 WGPURenderPipeline RenderContext::CreateRenderPipeline(const char *shaderPath) {
     auto shaderCode = ReadShaderCode(shaderPath);
 
     WGPUColorTargetState colorTargetState{
-            .format = WGPUTextureFormat_RGBA8UnormSrgb
+        .format = WGPUTextureFormat_RGBA8UnormSrgb
     };
 
     WGPUShaderModuleWGSLDescriptor wgslDesc {};
-    wgslDesc.code = shaderCode;
+    wgslDesc.code = shaderCode.c_str();
 
     WGPUShaderModuleDescriptor shaderModuleDescriptor {};
-
     WGPUShaderModule shaderModule = wgpuDeviceCreateShaderModule(m_Device, &shaderModuleDescriptor);
 
     WGPUVertexState vertexState{
@@ -213,18 +227,25 @@ WGPURenderPipeline RenderContext::CreateRenderPipeline(const char *shaderPath) {
     return wgpuDeviceCreateRenderPipeline(m_Device, &descriptor);
 }
 
-void RenderContext::SubmitCommandBuffer() {
+void RenderContext::SubmitCommandBuffer(int commandCount) {
     WGPUCommandBufferDescriptor descriptor {};
 
     auto commandBuffer = wgpuCommandEncoderFinish(m_CurrentCommandEncoder, &descriptor);
 
     wgpuQueueSubmit(m_Queue, 1, &commandBuffer);
-
     wgpuCommandBufferRelease(commandBuffer);
 }
 
+bool RenderContext::HasError() const {
+    return m_DawnError;
+}
 
+const std::string& RenderContext::ErrorMessage() const {
+    return m_DawnErrorMessage;
+}
 
+void RenderContext::ResizeSwapChain(int width, int height) {
+    wgpuSwapChainRelease(m_SwapChain);
 
-
-
+    InitSwapChain(width, height);
+}

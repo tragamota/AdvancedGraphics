@@ -18,6 +18,8 @@ public:
 private:
     RenderContext m_Context;
     Interface m_Interface;
+
+    void OnFrameBufferResize(int width, int height);
 };
 
 

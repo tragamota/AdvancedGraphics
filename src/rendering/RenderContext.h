@@ -12,20 +12,24 @@
 
 class RenderContext {
 public:
-    void Init(std::shared_ptr<Window> window);
+    void Init(const std::shared_ptr<Window>& window);
     void Destroy();
 
-    void RegisterInterface(std::shared_ptr<Window> window, Interface* interface);
+    void ResizeSwapChain(int, int);
+    void RegisterInterface(const std::shared_ptr<Window>& window, Interface* interface);
     void Present();
 
     WGPURenderPassEncoder GetRenderPass();
     WGPURenderPipeline CreateRenderPipeline(const char* );
 
-    void SubmitCommandBuffer();
+    void SubmitCommandBuffer(int);
+
+    [[nodiscard]] bool HasError() const;
+    [[nodiscard]] const std::string& ErrorMessage() const;
 
 private:
     bool m_DawnError = false;
-    const char* m_DawnErrorMessage = nullptr;
+    std::string m_DawnErrorMessage;
 
     WGPUInstance m_Instance   = nullptr;
     WGPUSurface m_Surface     = nullptr;
@@ -43,10 +47,9 @@ private:
     inline void InitWindowSurface(GLFWwindow*);
     inline void InitAdapter();
     inline void InitDevices();
-    inline void InitSwapChain(GLFWwindow*);
-    inline void InitImageViews();
+    inline void InitSwapChain(int, int);
 
-    const char* ReadShaderCode(const char*);
+    std::string ReadShaderCode(const char*);
 };
 
 #endif //ADVANCEDGRAPHICS_RENDERCONTEXT_H
