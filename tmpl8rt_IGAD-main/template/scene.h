@@ -23,9 +23,9 @@
 
 #define SPEEDTRIX
 // #define FOURLIGHTS
-// #define USEBVH
-#define USEOCTREE
-#define USEGRID
+#define USEBVH
+// #define USEOCTREE
+// #define USEGRID
 // bvh settings:
 #define SPATIALSPLITS
 #define SBVHUNSPLITTING
@@ -156,24 +156,41 @@ public:
 	BVH() = default;
 	BVH( const char* fileName, mat4 transform = mat4::Identity() )
 	{
+		auto vertices = ReadMesh(fileName);
+
+		verticesCount = vertices.size();
+
 		// proceed
 	#ifdef SPATIALSPLITS
-		tri = new Tri[PRIMCOUNT * 2];
-		triIdx = new uint[PRIMCOUNT * 2]; // extra space for duplicate indices
-		triTmp = new uint[PRIMCOUNT * 2]; // we'll need to double-buffer this
+		tri = new Tri[verticesCount * 4];
+		triIdx = new uint[verticesCount * 4]; // extra space for duplicate indices
+		triTmp = new uint[verticesCount * 4]; // we'll need to double-buffer this
 	#else
 		tri = new Tri[PRIMCOUNT];
 		triIdx = new uint[PRIMCOUNT];
 	#endif
 		
-		triPtr = PRIMCOUNT; // we'll reserve tri copies for spatial splits from here
-		N = new float3[PRIMCOUNT];
-		FILE* file = fopen( fileName, "r" );
-		for (int t = 0; t < PRIMCOUNT; t++)
-			fscanf( file, "%f %f %f %f %f %f %f %f %f\n",
-				&tri[t].vertex0.x, &tri[t].vertex0.y, &tri[t].vertex0.z,
-				&tri[t].vertex1.x, &tri[t].vertex1.y, &tri[t].vertex1.z,
-				&tri[t].vertex2.x, &tri[t].vertex2.y, &tri[t].vertex2.z );
+		triPtr = vertices.size(); // we'll reserve tri copies for spatial splits from here
+		N = new float3[vertices.size()];
+		
+		//FILE* file = fopen( fileName, "r" );
+		//for (int t = 0; t < PRIMCOUNT; t++)
+		//	fscanf( file, "%f %f %f %f %f %f %f %f %f\n",
+		//		&tri[t].vertex0.x, &tri[t].vertex0.y, &tri[t].vertex0.z,
+		//		&tri[t].vertex1.x, &tri[t].vertex1.y, &tri[t].vertex1.z,
+		//		&tri[t].vertex2.x, &tri[t].vertex2.y, &tri[t].vertex2.z );
+
+		for (int t = 0; t < vertices.size(); t++) {
+			tri[t].vertex0.x = vertices[t].vertex0.x;
+			tri[t].vertex0.y = vertices[t].vertex0.y;
+			tri[t].vertex0.z = vertices[t].vertex0.z;
+			tri[t].vertex1.x = vertices[t].vertex1.x;
+			tri[t].vertex1.y = vertices[t].vertex1.y;
+			tri[t].vertex1.z = vertices[t].vertex1.z;
+			tri[t].vertex2.x = vertices[t].vertex2.x;
+			tri[t].vertex2.y = vertices[t].vertex2.y;
+			tri[t].vertex2.z = vertices[t].vertex2.z;
+		}
 		
 		BuildBVH();
 
@@ -189,13 +206,66 @@ public:
 		T = transform;
 		invT = transform.Inverted();
 		// normals
-		for (int i = 0; i < PRIMCOUNT; i++)
+		for (int i = 0; i < verticesCount; i++)
 		{
 			float3 edge1 = tri[i].vertex1 - tri[i].vertex0;
 			float3 edge2 = tri[i].vertex2 - tri[i].vertex0;
 			N[i] = normalize( TransformVector( cross( edge1, edge2 ), T ) );
 		}
 	}
+
+	std::vector<Tri> ReadMesh(const char* file) {
+		std::vector<Tri> triangles;
+
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+
+		std::string warn;
+		std::string err;
+
+		bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, file, "", false);
+
+		for (size_t s = 0; s < shapes.size(); s++) {
+
+			size_t index_offset = 0;
+			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+				size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+
+				std::vector<float3> vertices;
+
+				// Loop over vertices in the face.
+				for (size_t v = 0; v < fv; v++) {
+					// access to vertex
+					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+
+					tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+					tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+					tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+
+					vertices.emplace_back(vx, vy, vz);
+				}
+
+				Tri triangle = Tri();
+
+				triangle.vertex0 = vertices[0];
+				triangle.vertex1 = vertices[1];
+				triangle.vertex2 = vertices[2];
+
+				triangle.bounds = aabb(triangle.vertex0, triangle.vertex0);
+				triangle.bounds.Grow(triangle.vertex1);
+				triangle.bounds.Grow(triangle.vertex2);
+				triangle.idx = f;
+
+				triangles.emplace_back(triangle);
+
+				index_offset += fv;
+			}
+		}
+
+		return triangles;
+	}
+
 	// methods
 	float3 GetNormal( const uint triIdx ) const { return N[triIdx]; }
 
@@ -264,17 +334,17 @@ public:
 		// create the BVH node pool
 	#ifdef SPATIALSPLITS
 		// 4N, to be sure; spatial splits cause this to be a bit unpredictable
-		bvhNode = (BVHNode*)_aligned_malloc( sizeof( BVHNode ) * PRIMCOUNT * 4, 64 );
+		bvhNode = (BVHNode*)_aligned_malloc( sizeof( BVHNode ) * verticesCount * 4, 64 );
 	#else
-		bvhNode = (BVHNode*)_aligned_malloc( sizeof( BVHNode ) * PRIMCOUNT * 2, 64 );
+		bvhNode = (BVHNode*)_aligned_malloc( sizeof( BVHNode ) * verticesCount * 2, 64 );
 	#endif
 		
 		// populate triangle index array
-		for (int i = 0; i < PRIMCOUNT; i++) 
+		for (int i = 0; i < verticesCount; i++)
 			triIdx[i] = i;
 
 		// calculate triangle centroids for partitioning
-		for (int i = 0; i < PRIMCOUNT; i++)
+		for (int i = 0; i < verticesCount; i++)
 		{
 			tri[i].bounds = aabb( tri[i].vertex0, tri[i].vertex0 );
 			tri[i].bounds.Grow( tri[i].vertex1 );
@@ -286,7 +356,7 @@ public:
 
 		// assign all triangles to root node
 		BVHNode& root = bvhNode[rootNodeIdx];
-		root.leftFirst = 0, root.triCount = PRIMCOUNT;
+		root.leftFirst = 0, root.triCount = verticesCount;
 		// update root node bounds
 		root.aabbMin = float3( 1e30f ), 
 		root.aabbMax = float3( -1e30f );
@@ -301,7 +371,7 @@ public:
 		// subdivide recursively
 		spatialSplits = 0;
 		#ifdef SPATIALSPLITS
-			Subdivide( rootNodeIdx, PRIMCOUNT /* initial spare prim idx slots */ );
+			Subdivide( rootNodeIdx, verticesCount /* initial spare prim idx slots */ );
 		#else
 			Subdivide( rootNodeIdx );
 		#endif
@@ -579,6 +649,8 @@ public:
 		Subdivide( rightChildIdx, halfSlack );
 	}
 	// BVH data members
+	int verticesCount = 0;
+
 	Tri* tri = 0;
 	BVHNode* bvhNode = 0;
 	uint* triIdx = 0, * triTmp = 0, rootNodeIdx = 0, nodesUsed = 2, triPtr = 0;
@@ -601,36 +673,42 @@ struct Tri
 
 struct GridCell {
 	aabb bounds;
-	uint* triIdx;
+	int triIndices;
+	std::vector<uint> triIdx;
 };
 
 struct GridNode {
 	aabb bounds;
+	int cellCount;
 	GridCell* cells;
 };
 
 class Grid {
+
+private:
 	std::vector<Tri> triangles;
-	GridNode grid;
+	std::vector<float3> N;
+	GridNode gridNode;
 
 public:
 	Grid() = default;
 
-	Grid(const char* file, int grids) {
-		BuildGrid(file, grids, grids, grids);
+	Grid(const char* file, int grids, mat4 t) {
+		BuildGrid(file, grids, grids, grids, t);
 	}
 
-	Grid(const char* file, int width, int height, int depth) {
-		BuildGrid(file, width, height, depth);
+	Grid(const char* file, int width, int height, int depth, mat4 t) {
+		BuildGrid(file, width, height, depth, t);
 	}
 
-	void BuildGrid(const char* file, int width, int height, int depth) {
+	void BuildGrid(const char* file, int width, int height, int depth, mat4 transform = mat4::Identity()) {
 		triangles = ReadMesh(file);
 
 		aabb boundingSpace = findBoundingBox(&triangles);
 
-		grid.bounds = boundingSpace;
-		grid.cells = new GridCell[width * height * depth];
+		gridNode.bounds = boundingSpace;
+		gridNode.cellCount = width * height * depth;
+		gridNode.cells = new GridCell[width * height * depth];
 
 		int tri_count = 0;
 
@@ -641,7 +719,7 @@ public:
 		for (int i = 0; i < width; ++i) {
 			for (int j = 0; j < height; ++j) {
 				for (int k = 0; k < depth; ++k) {
-					auto& cell = grid.cells[i * j * k];
+					auto& cell = gridNode.cells[i * j * k];
 
 					float minX = boundingSpace.Minimum(0) + i * cellSizeX;
 					float minY = boundingSpace.Minimum(1) + j * cellSizeY;
@@ -654,9 +732,7 @@ public:
 					aabb cellBounds;
 					cellBounds.SetBounds({ minX, minY, minZ }, { maxX, maxY, maxZ });
 
-					// Check for intersection with the original AABB
 					if (boundingSpace.Intersection(cellBounds).Area() > 0.0f) {
-						// If there is an intersection, add the cell to the grid
 						cell.bounds = cellBounds;
 
 						std::vector<uint> tri_indices;
@@ -674,18 +750,29 @@ public:
 							}
 						}
 
-						if (tri_indices.size() > 0) {
-							tri_count += tri_indices.size();
-
-							cell.triIdx = new uint[tri_indices.size()];
-
-							memcpy(cell.triIdx, &(tri_indices)[0], tri_indices.size());
-						}
+						cell.triIdx = tri_indices;
+						cell.triIndices = tri_indices.size();
 					}
 				}
 			}
 		}
+
+		mat4 T = transform;
+		mat4 Tinv = transform.Inverted();
+
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
+			float3 edge2 = triangles[i].vertex2 - triangles[i].vertex0;
+			N.emplace_back(normalize(TransformVector(cross(edge1, edge2), T)));
+		}
 	}
+
+	// methods
+	float3 GetNormal(const uint triIdx) const { 
+		return N[triIdx]; 
+	}
+	
 
 	std::vector<Tri> ReadMesh(const char* file) {
 		std::vector<Tri> triangles;
@@ -728,6 +815,7 @@ public:
 				triangle.bounds = aabb(triangle.vertex0, triangle.vertex0);
 				triangle.bounds.Grow(triangle.vertex1);
 				triangle.bounds.Grow(triangle.vertex2);
+				triangle.idx = f;
 
 				triangles.emplace_back(triangle);
 
@@ -751,10 +839,88 @@ public:
 		return boundingBox;
 	}
 
-	void Intersect(Ray& ray) const {
-		grid.bounds
+	void IntersectTri(Ray& ray, const uint triIdx) const
+	{
+		const Tri& tri = this->triangles[triIdx];
+		const float3 edge1 = tri.vertex1 - tri.vertex0, edge2 = tri.vertex2 - tri.vertex0;
+		const float3 h = cross(ray.D, edge2);
+		const float a = dot(edge1, h);
+		
+		if (a > -0.0001f && a < 0.0001f) 
+			return; // ray parallel to triangle
+		
+		const float3 s = ray.O - tri.vertex0;
+		const float f = 1 / a, u = f * dot(s, h);
+		
+		if (u < 0 || u > 1) 
+			return;
+		
+		const float3 q = cross(s, edge1);
+		const float v = f * dot(ray.D, q);
+		
+		if (v < 0 || u + v > 1) 
+			return;
+		
+		const float t = f * dot(edge2, q);
+		
+		if (t > 0.0001f && t < ray.t) 
+			ray.t = t, ray.objIdx = 1000 + triIdx;
 	}
 
+	float IntersectAABB(Ray& ray, const aabb& bounds) const {
+		float tx1 = (bounds.bmin3.x - ray.O.x) * ray.rD.x;
+		float tx2 = (bounds.bmax3.x - ray.O.x) * ray.rD.x;
+		float tmin = min(tx1, tx2), tmax = max(tx1, tx2);
+		float ty1 = (bounds.bmin3.y - ray.O.y) * ray.rD.y;
+		float ty2 = (bounds.bmax3.y - ray.O.y) * ray.rD.y;
+		
+		tmin = max(tmin, min(ty1, ty2));
+		tmax = min(tmax, max(ty1, ty2));
+		
+		float tz1 = (bounds.bmin3.z - ray.O.z) * ray.rD.z;
+		float tz2 = (bounds.bmax3.z - ray.O.z) * ray.rD.z;
+
+		tmin = max(tmin, min(tz1, tz2));
+		tmax = min(tmax, max(tz1, tz2));
+
+		if (tmax >= tmin && tmin < ray.t && tmax > 0) 
+			return tmin; 
+		else 
+			return -1e30f;
+	}
+
+	int Intersect(Ray& ray) const {
+		int intersections = 0;
+
+		float t = IntersectAABB(ray, gridNode.bounds);
+
+		if (t < 0) {
+			return 0;
+		}
+
+		intersections++;
+
+		std::vector<GridCell> intersectedCells;
+
+		for (int i = 0; i < gridNode.cellCount; i++) {
+			auto cell = gridNode.cells[i];
+
+			if (IntersectAABB(ray, cell.bounds) >= 0) {
+				intersectedCells.emplace_back(cell);
+			}
+		}
+
+		for (auto& cell : intersectedCells) {
+			for (int i = 0; i <= cell.triIndices - 1; i++) {
+				auto triangleIndex = cell.triIdx[i];
+
+				IntersectTri(ray, triangleIndex);
+				intersections++;
+			}
+		}
+
+		return intersections;
+	}
 };
 
 
@@ -1293,24 +1459,25 @@ public:
 		quad = Quad( 0, 1 );									// 0: light source
 	#endif
 		sphere = Sphere( 1, float3( 0 ), 0.6f );				// 1: bouncing ball
-		sphere2 = Sphere( 2, float3( 0, 2.5f, -3.07f ), 8 );	// 2: rounded corners
+		sphere2 = Sphere( 2, float3( 0, 2.5f, -3.07f ), 16 );	// 2: rounded corners
 		cube = Cube( 3, float3( 0 ), float3( 1.15f ) );			// 3: cube
-		plane[0] = Plane( 4, float3( 1, 0, 0 ), 3 );			// 4: left wall
-		plane[1] = Plane( 5, float3( -1, 0, 0 ), 2.99f );		// 5: right wall
-		plane[2] = Plane( 6, float3( 0, 1, 0 ), 1 );			// 6: floor
-		plane[3] = Plane( 7, float3( 0, -1, 0 ), 2 );			// 7: ceiling
-		plane[4] = Plane( 8, float3( 0, 0, 1 ), 3 );			// 8: front wall
-		plane[5] = Plane( 9, float3( 0, 0, -1 ), 3.99f );		// 9: back wall
+		plane[0] = Plane( 4, float3( 2, 0, 0 ), 3 );			// 4: left wall
+		plane[1] = Plane( 5, float3( -2, 0, 0 ), 2.99f );		// 5: right wall
+		plane[2] = Plane( 6, float3( 0, 2, 0 ), 1 );			// 6: floor
+		plane[3] = Plane( 7, float3( 0, -2, 0 ), 2 );			// 7: ceiling
+		plane[4] = Plane( 8, float3( 0, 0, 2 ), 3 );			// 8: front wall
+		plane[5] = Plane( 9, float3( 0, 0, -2 ), 3.99f );		// 9: back wall
 		torus = Torus( 10, 0.8f, 0.25f );						// 10: torus
 		torus.T = mat4::Translate( -0.25f, 0, 2 ) * mat4::RotateX( PI / 4 );
 		torus.invT = torus.T.Inverted();
 	#ifdef USEBVH
-		mat4 T = mat4::Translate( float3( 0, 0, -1 ) ) * mat4::Scale( 0.5f );
-		bvh = BVH( "../assets/unity.tri", T );
+		mat4 T = mat4::Translate( float3( 0, 0, -3 ) ) * mat4::Scale( 0.5f );
+		bvh = BVH( "../assets/spaceship.obj", T );
 	#endif
 
 	#ifdef USEGRID
-		grid = Grid("../assets/monkey.obj", 10);
+		mat4 T = mat4::Translate(float3(0, 0, -1)) * mat4::Scale(0.5f);
+		grid = Grid("../assets/spaceship.obj", 10, T);
 	#endif
 		SetTime( 0 );
 		// Note: once we have triangle support we should get rid of the class
@@ -1424,6 +1591,7 @@ public:
 		return 1;
 	#endif
 	}
+
 	void FindNearest( Ray& ray ) const
 	{
 		// room walls - ugly shortcut for more speed
@@ -1432,8 +1600,8 @@ public:
 		const float3 spos = sphere.pos;
 		const float3 ro = ray.O, rd = ray.D;
 		// TODO: the room is actually just an AABB; use slab test
-		static const __m128 x4min = _mm_setr_ps( 3, 1, 3, 1e30f );
-		static const __m128 x4max = _mm_setr_ps( -2.99f, -2, -3.99f, 1e30f );
+		static const __m128 x4min = _mm_setr_ps( 12, 4, 12, 1e30f );
+		static const __m128 x4max = _mm_setr_ps( -11.96f, -8, -15.96f, 1e30f );
 		static const __m128 idmin = _mm_castsi128_ps( _mm_setr_epi32( 4, 6, 8, -1 ) );
 		static const __m128 idmax = _mm_castsi128_ps( _mm_setr_epi32( 5, 7, 9, -1 ) );
 		static const __m128 zero4 = _mm_setzero_ps();
@@ -1490,19 +1658,19 @@ public:
 				if (hit) { ray.t = t, ray.objIdx = 1; }
 			};
 		}
-		{
-			// SIMD sphere intersection code by Jesse Vrooman
-			const static __m128 s4 = _mm_setr_ps( 0, 2.5f, -3.07f, 1 );
-			const __m128 oc = _mm_sub_ps( ray.O4, s4 );
-			const float b = _mm_dp_ps( oc, ray.D4, 0x71 ).m128_f32[0];
-			const float d = b * b - (_mm_dp_ps( oc, oc, 0x71 ).m128_f32[0] - 64.0f);
-			if (d > 0)
-			{
-				const float t = sqrtf( d ) - b;
-				const bool hit = t < ray.t && t > 0;
-				if (hit) { ray.t = t, ray.objIdx = 2; }
-			};
-		}
+		//{
+		//	// SIMD sphere intersection code by Jesse Vrooman
+		//	const static __m128 s4 = _mm_setr_ps( 0, 2.5f, -3.07f, 4 );
+		//	const __m128 oc = _mm_sub_ps( ray.O4, s4 );
+		//	const float b = _mm_dp_ps( oc, ray.D4, 0x71 ).m128_f32[0];
+		//	const float d = b * b - (_mm_dp_ps( oc, oc, 0x71 ).m128_f32[0] - 64.0f);
+		//	if (d > 0)
+		//	{
+		//		const float t = sqrtf( d ) - b;
+		//		const bool hit = t < ray.t && t > 0;
+		//		if (hit) { ray.t = t, ray.objIdx = 2; }
+		//	};
+		//}
 	#else
 		sphere.Intersect( ray );
 		sphere2.Intersect( ray );
@@ -1513,11 +1681,16 @@ public:
 	#ifdef USEBVH
 		bvh.Intersect( ray );
 	#endif
+
+	#ifdef USEGRID
+		grid.Intersect(ray);
+	#endif
 	}
 
 	bool IsOccluded( const Ray& ray ) const
 	{
-		if (cube.IsOccluded( ray )) return true;
+		if (cube.IsOccluded( ray )) 
+			return true;
 	#ifdef SPEEDTRIX
 		const float3 oc = ray.O - sphere.pos;
 		const float b = dot( oc, ray.D ), c = dot( oc, oc ) - (0.6f * 0.6f);
@@ -1536,13 +1709,27 @@ public:
 	#else
 		if (quad.IsOccluded( ray )) return true;
 	#endif
+		
 		if (torus.IsOccluded( ray )) return true;
+	
 	#ifdef USEBVH
 		Ray shadow = ray;
 		shadow.t = 1e34f;
 		bvh.Intersect( shadow );
-		if (shadow.objIdx >= 1000) return true;
+
+		if (shadow.objIdx >= 1000) 
+			return true;
 	#endif
+
+	#ifdef USEGRID
+		Ray shadow = ray;
+		shadow.t = 1e34f;
+		grid.Intersect(shadow);
+
+		if (shadow.objIdx >= 1000)
+			return true;
+	#endif
+
 		return false; // skip planes and rounded corners
 	}
 
@@ -1555,15 +1742,20 @@ public:
 	#ifdef FOURLIGHTS
 		if (objIdx == 0) N = quad[0].GetNormal( I ); // they're all oriented the same
 	#else
-		if (objIdx == 0) N = quad.GetNormal( I );
-	#endif
-		else if (objIdx == 1) N = sphere.GetNormal( I );
-		else if (objIdx == 2) N = sphere2.GetNormal( I );
-		else if (objIdx == 3) N = cube.GetNormal( I );
-		else if (objIdx == 10) N = torus.GetNormal( I );
-	#ifdef USEBVH
-		else if (objIdx >= 1000) N = bvh.GetNormal( objIdx - 1000 );
-	#endif
+		if (objIdx == 0) N = quad.GetNormal(I);
+#endif
+		else if (objIdx == 1) N = sphere.GetNormal(I);
+		else if (objIdx == 2) N = sphere2.GetNormal(I);
+		else if (objIdx == 3) N = cube.GetNormal(I);
+		else if (objIdx == 10) N = torus.GetNormal(I);
+#ifdef USEBVH
+		else if (objIdx >= 1000) N = bvh.GetNormal(objIdx - 1000);
+#endif
+
+#ifdef USEGRID
+		else if (objIdx >= 1000) 
+			N = grid.GetNormal(objIdx - 1000);
+#endif
 		else
 		{
 			// faster to handle the 6 planes without a call to GetNormal
@@ -1589,36 +1781,47 @@ public:
 	#ifdef USEBVH
 		if (objIdx >= 1000) return float3( 0.7f, 0.2f, 0.2f );
 	#endif
+
+	#ifdef USEGRID
+			if (objIdx >= 1000) 
+				return float3(0.7f, 0.2f, 0.2f);
+	#endif
 		return plane[objIdx - 4].GetAlbedo( I );
 		// once we have triangle support, we should pass objIdx and the bary-
 		// centric coordinates of the hit, instead of the intersection location.
 	}
+
 	float GetReflectivity( int objIdx, float3 I ) const
 	{
 		if (objIdx == 1 /* ball */) return 1;
 		if (objIdx == 6 /* floor */) return 0.3f;
 		return 0;
 	}
+
 	float GetRefractivity( int objIdx, float3 I ) const
 	{
 		return (objIdx == 3 || objIdx == 10) ? 1.0f : 0.0f;
 	}
+
 	float3 GetAbsorption( int objIdx )
 	{
 		return objIdx == 3 ? float3( 0.5f, 0, 0.5f ) : float3( 0 );
 	}
 	__declspec(align(64)) // start a new cacheline here
 		float animTime = 0;
+
 #ifdef FOURLIGHTS
 	Quad quad[4];
 #else
 	Quad quad, dummyQuad1, dummyQuad2, dummyQuad3;
 #endif
+
 	Sphere sphere;
 	Sphere sphere2;
 	Cube cube;
 	Plane plane[6];
 	Torus torus;
+
 #ifdef USEBVH
 	BVH bvh;
 #endif
