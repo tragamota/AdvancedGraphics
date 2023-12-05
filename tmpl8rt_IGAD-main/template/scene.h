@@ -23,9 +23,9 @@
 
 #define SPEEDTRIX
 // #define FOURLIGHTS
-#define USEBVH
+// #define USEBVH
 // #define USEOCTREE
-// #define USEGRID
+ #define USEGRID
 // bvh settings:
 #define SPATIALSPLITS
 #define SBVHUNSPLITTING
@@ -716,6 +716,8 @@ public:
 		float cellSizeY = boundingSpace.Extend(1) / static_cast<float>(height);
 		float cellSizeZ = boundingSpace.Extend(2) / static_cast<float>(depth);
 
+		auto vertexCount = 0;
+
 		for (int i = 0; i < width; ++i) {
 			for (int j = 0; j < height; ++j) {
 				for (int k = 0; k < depth; ++k) {
@@ -746,6 +748,7 @@ public:
 								(triangleMiddlepoint.y <= cellBounds.bmax[1]) && (triangleMiddlepoint.y >= cellBounds.bmin[1]) &&
 								(triangleMiddlepoint.z <= cellBounds.bmax[2]) && (triangleMiddlepoint.z >= cellBounds.bmin[2]))
 							{
+								vertexCount += 1;
 								tri_indices.emplace_back(i);
 							}
 						}
@@ -762,7 +765,7 @@ public:
 
 		for (int i = 0; i < triangles.size(); i++)
 		{
-			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
+ 			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
 			float3 edge2 = triangles[i].vertex2 - triangles[i].vertex0;
 			N.emplace_back(normalize(TransformVector(cross(edge1, edge2), T)));
 		}
@@ -891,10 +894,18 @@ public:
 
 	int Intersect(Ray& ray) const {
 		int intersections = 0;
+		bool isInside = false;
+
+		if (ray.O.x >= gridNode.bounds.bmin3.x && ray.O.x <= gridNode.bounds.bmax3.x &&
+			ray.O.y >= gridNode.bounds.bmin3.y && ray.O.z <= gridNode.bounds.bmax3.y &&
+			ray.O.z >= gridNode.bounds.bmin3.z && ray.O.y <= gridNode.bounds.bmax3.z) 
+		{
+			isInside = true;
+		}
 
 		float t = IntersectAABB(ray, gridNode.bounds);
 
-		if (t < 0) {
+		if (t < 0 && !isInside) {
 			return 0;
 		}
 
