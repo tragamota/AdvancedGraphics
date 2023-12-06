@@ -24,8 +24,8 @@
 #define SPEEDTRIX
 // #define FOURLIGHTS
 // #define USEBVH
-// #define USEOCTREE
- #define USEGRID
+ #define USEOCTREE
+// #define USEGRID
 // bvh settings:
 #define SPATIALSPLITS
 #define SBVHUNSPLITTING
@@ -690,6 +690,12 @@ private:
 	std::vector<float3> N;
 	GridNode gridNode;
 
+	mat4 T;
+	mat4 Tinv;
+
+	float3 cellSize;
+	float3 gridOrigin;
+
 public:
 	Grid() = default;
 
@@ -715,6 +721,9 @@ public:
 		float cellSizeX = boundingSpace.Extend(0) / static_cast<float>(width);
 		float cellSizeY = boundingSpace.Extend(1) / static_cast<float>(height);
 		float cellSizeZ = boundingSpace.Extend(2) / static_cast<float>(depth);
+
+		cellSize = float3(cellSizeX, cellSizeY, cellSizeZ);
+		gridOrigin = boundingSpace.bmin3;
 
 		auto vertexCount = 0;
 
@@ -893,8 +902,13 @@ public:
 	}
 
 	int Intersect(Ray& ray) const {
-		int intersections = 0;
+		int intersections = 1;
 		bool isInside = false;
+
+		float3 O = TransformPosition_SSE(ray.O4, Tinv);
+		float3 D = TransformVector_SSE(ray.D4, Tinv);
+
+		Ray rayT = Ray(O, D, ray.t, ray.objIdx);
 
 		if (ray.O.x >= gridNode.bounds.bmin3.x && ray.O.x <= gridNode.bounds.bmax3.x &&
 			ray.O.y >= gridNode.bounds.bmin3.y && ray.O.z <= gridNode.bounds.bmax3.y &&
@@ -909,33 +923,361 @@ public:
 			return 0;
 		}
 
-		intersections++;
+		Ray movedRay = rayT;
+		int3 cellIndex = {};
 
-		std::vector<GridCell> intersectedCells;
+		if (!isInside) {
+			float3 O = rayT.O + rayT.D * t;
 
-		for (int i = 0; i < gridNode.cellCount; i++) {
-			auto cell = gridNode.cells[i];
-
-			if (IntersectAABB(ray, cell.bounds) >= 0) {
-				intersectedCells.emplace_back(cell);
-			}
+			movedRay = Ray(O, rayT.D, rayT.t, rayT.objIdx);
 		}
 
-		for (auto& cell : intersectedCells) {
-			for (int i = 0; i <= cell.triIndices - 1; i++) {
-				auto triangleIndex = cell.triIdx[i];
+		float3 currentPos = movedRay.O - gridOrigin;
 
-				IntersectTri(ray, triangleIndex);
-				intersections++;
+		float z = currentPos.z / cellSize.z;
+
+		cellIndex.x = std::clamp((int) floor(currentPos.x / cellSize.x),0, 9);
+		cellIndex.y = std::clamp((int) floor(currentPos.y / cellSize.y),0, 9);
+		cellIndex.z = std::clamp((int) floor(currentPos.z / cellSize.z),0, 9);
+
+		float3 delta;
+
+		delta.x = cellSize.x / ray.D.x;
+		delta.y = cellSize.y / ray.D.y;
+		delta.z = cellSize.z / ray.D.z;
+		
+		int3 stepSize;
+
+		stepSize.x = (delta.x < 0) ? -1 : 1;
+		stepSize.y = (delta.y < 0) ? -1 : 1;
+		stepSize.z = (delta.z < 0) ? -1 : 1;
+
+		if (delta.x < 0) {
+			delta.x = -delta.x;
+		}
+		if (delta.y < 0) {
+			delta.y = -delta.y;
+		}
+		if (delta.z < 0) {
+			delta.z = -delta.z;
+		}
+
+		float t_x = (currentPos.x - gridOrigin.x) / delta.x;
+		float t_y = (currentPos.y - gridOrigin.y) / delta.y;
+		float t_z = (currentPos.z - gridOrigin.z) / delta.z;
+
+		t = 0;
+
+		int objId = -1;
+		float dist = 1e30f;
+
+		while (true) {
+
+			if (t_x < t_y) {
+				if (t_x < t_z) {
+					t = t_x;
+					t_x += delta.x;
+					
+					cellIndex.x += stepSize.x;
+				}
+				else {
+					t = t_z;
+					t_z += delta.z;
+
+					cellIndex.z += stepSize.z;
+				}
+			}
+			else {
+				if (t_y < t_z) {
+					t = t_y;
+					t_y += delta.x;
+
+					cellIndex.x += stepSize.x;
+				}
+				else {
+					t = t_z;
+					t_z += delta.z;
+
+					cellIndex.z += stepSize.z;
+				}
+			}
+
+			// Check if the current position is outside the overall grid bounds
+			if (cellIndex.x < 0 || cellIndex.y < 0 || cellIndex.z < 0 ||
+				cellIndex.x > 9 || cellIndex.y > 9 || cellIndex.z > 9)
+			{
+				break;
+			}
+
+			auto cell = gridNode.cells[cellIndex.x  + cellIndex.y + cellIndex.z];
+
+			for (auto tri : cell.triIdx) {
+				IntersectTri(ray, tri);
+
+				if (ray.t < dist) {
+					objId = ray.objIdx;
+					dist = ray.t;
+				}
+
+				//if (ray.objIdx != 1) {
+				//	break;
+				//}
 			}
 		}
 
 		return intersections;
 	}
 };
+#endif
 
+#ifdef USEOCTREE
+struct Tri
+{
+	uint idx;
+	aabb bounds;
+	float3 vertex0, vertex1, vertex2;
+};
+
+struct OctreeNode {
+	aabb bounds;
+	OctreeNode* nodes = nullptr;
+	std::vector<uint> triIndices;
+};
+
+class Octree {
+	OctreeNode root;
+	std::vector<Tri> triangles;
+
+	std::vector<float3> N;
+
+public:
+	Octree() = default;
+
+	Octree(const char* filename) {
+		buildOctree(filename);
+	}
+
+	void buildOctree(const char* filename) {
+		triangles = ReadMesh(filename);
+
+		mat4 T;
+		mat4 Tinv = T.Inverted();
+
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
+			float3 edge2 = triangles[i].vertex2 - triangles[i].vertex0;
+			N.emplace_back(normalize(TransformVector(cross(edge1, edge2), T)));
+		}
+
+		aabb boundingBox = findBoundingBox();
+		
+		root.bounds = boundingBox;
+
+		buildOctreeRecursive(root, triangles, 0);
+	}
+
+	void splitBounds(const aabb& parentBounds, aabb childBounds[8]) {
+		__m128 center = parentBounds.Center();
+		__m128 min = parentBounds.bmin4;
+		__m128 max = parentBounds.bmax4;
+
+		// Compute child bounds based on octree subdivision
+		for (int i = 0; i < 8; ++i) {
+			aabb& child = childBounds[i];
+
+			for (int j = 0; j < 3; ++j) {
+				child.bmin[j] = (i & (1 << j)) ? center.m128_f32[j] : min.m128_f32[j];
+				child.bmax[j] = (i & (1 << j)) ? max.m128_f32[j] : center.m128_f32[j];
+			}
+		}
+	}
+
+	float3 GetNormal(const uint idx) const {
+		return N[idx];
+	}
+
+	void buildOctreeRecursive(OctreeNode& node, const std::vector<Tri>& triangles, int depth) {
+		// You may want to add termination conditions based on the depth or number of triangles in a node.
+
+		if (depth >= 20) {
+			return;
+		}
+
+		// Subdivide the node into eight child nodes
+		node.nodes = new OctreeNode[8];
+
+		aabb childBounds[8];
+		splitBounds(node.bounds, childBounds);
+
+		// Subdivide the bounding box into eight child boxes
+		for (int i = 0; i < 8; ++i) {
+			node.nodes[i].bounds = childBounds[i];
+
+			// Find triangles within the child bounds
+			std::vector<Tri> trianglesInChild;
+			for (const auto& tri : triangles) {
+				if (childBounds[i].Contains(tri.bounds.Center())) {
+					trianglesInChild.push_back(tri);
+				}
+			}
+
+			if (trianglesInChild.size() < 10) {
+				node.nodes[i].triIndices.resize(trianglesInChild.size());
+
+				for (int j = 0; j < trianglesInChild.size(); j++) {
+					node.nodes[i].triIndices[j] = trianglesInChild[j].idx;
+				}
+
+				continue;
+			}
+
+			// Recursively build the octree for the child node with filtered triangles
+			buildOctreeRecursive(node.nodes[i], trianglesInChild, depth + 1);
+		}
+	}
+
+	bool rayAABBIntersect(const Ray& ray, const aabb& box, float& tNear, float& tFar) const {
+		float t1 = (box.Minimum(0) - ray.O.x) / ray.D.x;
+		float t2 = (box.Maximum(0) - ray.O.x) / ray.D.x;
+		float t3 = (box.Minimum(1) - ray.O.y) / ray.D.y;
+		float t4 = (box.Maximum(1) - ray.O.y) / ray.D.y;
+		float t5 = (box.Minimum(2) - ray.O.z) / ray.D.z;
+		float t6 = (box.Maximum(2) - ray.O.z) / ray.D.z;
+
+		tNear = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
+		tFar = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
+
+		return tNear < tFar && tFar > 0;
+	}
+
+	void IntersectTri(Ray& ray, const uint triIdx) const
+	{
+		const Tri& tri = this->triangles[triIdx];
+		const float3 edge1 = tri.vertex1 - tri.vertex0, edge2 = tri.vertex2 - tri.vertex0;
+		const float3 h = cross(ray.D, edge2);
+		const float a = dot(edge1, h);
+
+		if (a > -0.0001f && a < 0.0001f)
+			return; // ray parallel to triangle
+
+		const float3 s = ray.O - tri.vertex0;
+		const float f = 1 / a, u = f * dot(s, h);
+
+		if (u < 0 || u > 1)
+			return;
+
+		const float3 q = cross(s, edge1);
+		const float v = f * dot(ray.D, q);
+
+		if (v < 0 || u + v > 1)
+			return;
+
+		const float t = f * dot(edge2, q);
+
+		if (t > 0.0001f && t < ray.t)
+			ray.t = t, ray.objIdx = 1000 + triIdx;
+	}
+
+	void traverseOctreeRay(const OctreeNode& node, Ray& ray, int depth = 0) const {
+		float tNear, tFar;
+
+		// Check if the ray intersects with the bounding box of the current node
+		if (rayAABBIntersect(ray, node.bounds, tNear, tFar)) {
+			// Print information about the intersected node
+			//std::cout << "Intersected at depth " << depth << ", Bounds: ("
+			//	<< node.bounds.Minimum(0) << ", " << node.bounds.Minimum(1) << ", " << node.bounds.Minimum(2) << ") - ("
+			//	<< node.bounds.Maximum(0) << ", " << node.bounds.Maximum(1) << ", " << node.bounds.Maximum(2) << ")\n";
+
+			// You can perform additional operations or print information about triangles in this node, etc.
+
+			// Recursively traverse child nodes
+			for (int i = 0; i < 8; ++i) {
+				if (node.nodes[i].nodes == nullptr) {
+					for (auto idx : node.nodes[i].triIndices) {
+						IntersectTri(ray, idx);
+					}
+					return;
+				}
+
+				traverseOctreeRay(node.nodes[i], ray, depth + 1);
+			}
+		}
+	}
+
+	void Intersect(Ray& ray) const {
+		traverseOctreeRay(root, ray, 0);
+	}
+
+	aabb findBoundingBox() {
+		aabb boundingBox;
+
+		boundingBox.SetBounds({ 1e30f, 1e30f ,1e30f }, { -1e30f, -1e30f, -1e30f });
+
+		for (auto& triangle : triangles) {
+			boundingBox.bmin3 = fminf(boundingBox.bmin3, triangle.bounds.bmin3);
+			boundingBox.bmax3 = fmaxf(boundingBox.bmax3, triangle.bounds.bmax3);
+		}
+
+		return boundingBox;
+	}
+
+	std::vector<Tri> ReadMesh(const char* file) {
+		std::vector<Tri> triangles;
+
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+
+		std::string warn;
+		std::string err;
+
+		bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, file);
+
+		for (size_t s = 0; s < shapes.size(); s++) {
+
+			size_t index_offset = 0;
+			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+				size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+
+				std::vector<float3> vertices;
+
+				// Loop over vertices in the face.
+				for (size_t v = 0; v < fv; v++) {
+					// access to vertex
+					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+
+					tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+					tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+					tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+
+					vertices.emplace_back(vx, vy, vz);
+				}
+
+				Tri triangle = Tri();
+
+				triangle.vertex0 = vertices[0];
+				triangle.vertex1 = vertices[1];
+				triangle.vertex2 = vertices[2];
+
+				triangle.bounds = aabb(triangle.vertex0, triangle.vertex0);
+				triangle.bounds.Grow(triangle.vertex1);
+				triangle.bounds.Grow(triangle.vertex2);
+				triangle.idx = f;
+
+				triangles.emplace_back(triangle);
+
+				index_offset += fv;
+			}
+		}
+
+		return triangles;
+	}
+
+};
 
 #endif
+
 
 // -----------------------------------------------------------
 // Sphere primitive
@@ -1487,8 +1829,12 @@ public:
 	#endif
 
 	#ifdef USEGRID
-		mat4 T = mat4::Translate(float3(0, 0, -1)) * mat4::Scale(0.5f);
+		mat4 T = mat4::Translate(float3(0, 0, -3)) * mat4::Scale(0.5f);
 		grid = Grid("../assets/spaceship.obj", 10, T);
+	#endif
+
+	#ifdef USEOCTREE
+		octree = Octree("../assets/spaceship.obj");
 	#endif
 		SetTime( 0 );
 		// Note: once we have triangle support we should get rid of the class
@@ -1696,6 +2042,10 @@ public:
 	#ifdef USEGRID
 		grid.Intersect(ray);
 	#endif
+
+	#ifdef USEOCTREE
+		octree.Intersect(ray);
+	#endif
 	}
 
 	bool IsOccluded( const Ray& ray ) const
@@ -1767,6 +2117,11 @@ public:
 		else if (objIdx >= 1000) 
 			N = grid.GetNormal(objIdx - 1000);
 #endif
+
+#ifdef USEOCTREE
+		else if (objIdx >= 1000)
+			N = octree.GetNormal(objIdx - 1000);
+#endif
 		else
 		{
 			// faster to handle the 6 planes without a call to GetNormal
@@ -1794,8 +2149,13 @@ public:
 	#endif
 
 	#ifdef USEGRID
-			if (objIdx >= 1000) 
-				return float3(0.7f, 0.2f, 0.2f);
+		if (objIdx >= 1000) 
+			return float3(0.7f, 0.2f, 0.2f);
+	#endif
+
+	#ifdef USEOCTREE
+		if (objIdx >= 1000)
+			return float3(0.7f, 0.2f, 0.2f);
 	#endif
 		return plane[objIdx - 4].GetAlbedo( I );
 		// once we have triangle support, we should pass objIdx and the bary-
@@ -1840,6 +2200,10 @@ public:
 #ifdef USEGRID
 	Grid grid;
 #endif
+
+#ifdef USEOCTREE
+	Octree octree;
+#endif 
 };
 
 }
