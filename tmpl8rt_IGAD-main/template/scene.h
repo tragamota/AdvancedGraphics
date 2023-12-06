@@ -24,7 +24,7 @@
 #define SPEEDTRIX
 // #define FOURLIGHTS
 // #define USEBVH
- #define USEOCTREE
+#define USEOCTREE
 // #define USEGRID
 // bvh settings:
 #define SPATIALSPLITS
@@ -1050,18 +1050,20 @@ class Octree {
 
 	std::vector<float3> N;
 
+	mat4 T, Tinv;
+
 public:
 	Octree() = default;
 
-	Octree(const char* filename) {
+	Octree(const char* filename, mat4 transform) {
+		T = transform;
 		buildOctree(filename);
 	}
 
 	void buildOctree(const char* filename) {
 		triangles = ReadMesh(filename);
 
-		mat4 T;
-		mat4 Tinv = T.Inverted();
+		Tinv = T.Inverted();
 
 		for (int i = 0; i < triangles.size(); i++)
 		{
@@ -1182,22 +1184,13 @@ public:
 	void traverseOctreeRay(const OctreeNode& node, Ray& ray, int depth = 0) const {
 		float tNear, tFar;
 
-		// Check if the ray intersects with the bounding box of the current node
 		if (rayAABBIntersect(ray, node.bounds, tNear, tFar)) {
-			// Print information about the intersected node
-			//std::cout << "Intersected at depth " << depth << ", Bounds: ("
-			//	<< node.bounds.Minimum(0) << ", " << node.bounds.Minimum(1) << ", " << node.bounds.Minimum(2) << ") - ("
-			//	<< node.bounds.Maximum(0) << ", " << node.bounds.Maximum(1) << ", " << node.bounds.Maximum(2) << ")\n";
-
-			// You can perform additional operations or print information about triangles in this node, etc.
-
-			// Recursively traverse child nodes
 			for (int i = 0; i < 8; ++i) {
 				if (node.nodes[i].nodes == nullptr) {
 					for (auto idx : node.nodes[i].triIndices) {
 						IntersectTri(ray, idx);
 					}
-					return;
+					continue;
 				}
 
 				traverseOctreeRay(node.nodes[i], ray, depth + 1);
@@ -1206,7 +1199,13 @@ public:
 	}
 
 	void Intersect(Ray& ray) const {
-		traverseOctreeRay(root, ray, 0);
+		const float3 O = TransformPosition_SSE(ray.O4, Tinv);
+		const float3 D = TransformVector_SSE(ray.D4, Tinv);
+		Ray rayT(O, D, ray.t, ray.objIdx);
+
+		traverseOctreeRay(root, rayT, 0);
+
+		ray.t = rayT.t, ray.objIdx = rayT.objIdx;
 	}
 
 	aabb findBoundingBox() {
@@ -1825,7 +1824,7 @@ public:
 		torus.invT = torus.T.Inverted();
 	#ifdef USEBVH
 		mat4 T = mat4::Translate( float3( 0, 0, -3 ) ) * mat4::Scale( 0.5f );
-		bvh = BVH( "../assets/spaceship.obj", T );
+		bvh = BVH( "../assets/spaceship.obj", T);
 	#endif
 
 	#ifdef USEGRID
@@ -1834,7 +1833,8 @@ public:
 	#endif
 
 	#ifdef USEOCTREE
-		octree = Octree("../assets/spaceship.obj");
+		mat4 T = mat4::Translate(float3(0, 0, -3)) * mat4::Scale(0.5f);
+		octree = Octree("../assets/spaceship.obj", T);
 	#endif
 		SetTime( 0 );
 		// Note: once we have triangle support we should get rid of the class
