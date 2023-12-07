@@ -24,8 +24,8 @@
 #define SPEEDTRIX
 // #define FOURLIGHTS
 // #define USEBVH
-#define USEOCTREE
-// #define USEGRID
+// #define USEOCTREE
+#define USEGRID
 // bvh settings:
 #define SPATIALSPLITS
 #define SBVHUNSPLITTING
@@ -751,14 +751,25 @@ public:
 						for (int i = 0; i < triangles.size(); i++) {
 							const Tri& triangle = triangles[i];
 
-							float3 triangleMiddlepoint = (triangle.vertex0 + triangle.vertex1 + triangle.vertex2) / 3;
-
-							if ((triangleMiddlepoint.x <= cellBounds.bmax[0]) && (triangleMiddlepoint.x >= cellBounds.bmin[0]) &&
-								(triangleMiddlepoint.y <= cellBounds.bmax[1]) && (triangleMiddlepoint.y >= cellBounds.bmin[1]) &&
-								(triangleMiddlepoint.z <= cellBounds.bmax[2]) && (triangleMiddlepoint.z >= cellBounds.bmin[2]))
+							if (cellBounds.Contains(triangle.bounds.Center()))
 							{
 								vertexCount += 1;
 								tri_indices.emplace_back(i);
+								continue;
+							}
+
+							if (cellBounds.Contains(triangle.bounds.bmax4))
+							{
+								vertexCount += 1;
+								tri_indices.emplace_back(i);
+								continue;
+							}
+
+							if (cellBounds.Contains(triangle.bounds.bmin4))
+							{
+								vertexCount += 1;
+								tri_indices.emplace_back(i);
+								continue;
 							}
 						}
 
@@ -1121,6 +1132,17 @@ public:
 			for (const auto& tri : triangles) {
 				if (childBounds[i].Contains(tri.bounds.Center())) {
 					trianglesInChild.push_back(tri);
+					continue;
+				}
+			
+				if (childBounds[i].Contains(tri.bounds.bmin4)) {
+					trianglesInChild.push_back(tri);
+					continue;
+				}
+
+				if (childBounds[i].Contains(tri.bounds.bmax4)) {
+					trianglesInChild.push_back(tri);
+					continue;
 				}
 			}
 
