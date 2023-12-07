@@ -9,7 +9,7 @@
 
 #include "RenderContext.h"
 
-#include "../misc/glfw3webgpu.h"
+#include "../platform/GlfwSurfaceExtension.h"
 
 void RenderContext::Init(const std::shared_ptr<Window>& window) {
     int width, height;
@@ -161,7 +161,7 @@ WGPURenderPassEncoder RenderContext::GetRenderPass() {
             .view = m_TextureView,
             .loadOp = WGPULoadOp_Clear,
             .storeOp = WGPUStoreOp_Store,
-            .clearValue = WGPUColor(0.1f, 0.1f, 0.1f, 0.0f)
+            .clearValue = WGPUColor {0.1f, 0.1f, 0.1f, 0.0f}
     };
 
     WGPURenderPassDescriptor renderPassDesc {
@@ -184,7 +184,7 @@ std::string RenderContext::ReadShaderCode(const char * filePath) {
     std::ifstream inputFile(filePath);
 
     if (!inputFile.is_open()) {
-        throw std::exception("Shader file doesn't exist");
+        throw std::runtime_error("Shader file doesn't exist");
     }
 
     buffer << inputFile.rdbuf();
