@@ -9,9 +9,12 @@ void Interface::Init(const std::shared_ptr<Window>& window, WGPUDevice* device, 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
-    auto a = ImGui_ImplGlfw_InitForOther(window->GetGLFWWindow(), true);
-    auto b = ImGui_ImplWGPU_Init(*device, 2,swapChainFormat);
+    ImGui_ImplGlfw_InitForOther(window->GetGLFWWindow(), true);
+    ImGui_ImplWGPU_Init(*device, 2,swapChainFormat);
 
+    io.Fonts->AddFontFromFileTTF("assets/Roboto.ttf", io.DisplayFramebufferScale.x * 15.0f, nullptr, nullptr);
+    io.FontAllowUserScaling = true;
+    io.FontGlobalScale = 1.0f / io.DisplayFramebufferScale.x;
     ImGui::StyleColorsDark();
 }
 

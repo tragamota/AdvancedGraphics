@@ -23,7 +23,6 @@ void RenderContext::Init(const std::shared_ptr<Window>& window) {
 }
 
 void RenderContext::Destroy() {
-    wgpuTextureViewRelease(m_TextureView);
     wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
     wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
 
@@ -90,7 +89,8 @@ void RenderContext::InitDevices() {
     WGPUDeviceDescriptor descriptor = {
             .requiredFeatureCount = 0,
             .requiredFeatures = nullptr,
-            .deviceLostCallback = nullptr
+            .deviceLostCallback = nullptr,
+            .deviceLostUserdata = nullptr
     };
 
     WGPURequestDeviceCallback callback = [](WGPURequestDeviceStatus status, WGPUDevice device, char const *message,
@@ -147,6 +147,7 @@ void RenderContext::InitSwapChain(int width, int height) {
 
 void RenderContext::Present() {
     wgpuSwapChainPresent(m_SwapChain);
+    wgpuTextureViewRelease(m_TextureView);
 }
 
 WGPURenderPassEncoder RenderContext::GetRenderPass() {
@@ -161,7 +162,7 @@ WGPURenderPassEncoder RenderContext::GetRenderPass() {
             .view = m_TextureView,
             .loadOp = WGPULoadOp_Clear,
             .storeOp = WGPUStoreOp_Store,
-            .clearValue = WGPUColor {0.1f, 0.1f, 0.1f, 0.0f}
+            .clearValue = WGPUColor {1.0f, 1.0f, 1.0f, 0.0f}
     };
 
     WGPURenderPassDescriptor renderPassDesc {
@@ -173,8 +174,6 @@ WGPURenderPassEncoder RenderContext::GetRenderPass() {
 
     m_CurrentCommandEncoder = wgpuDeviceCreateCommandEncoder(m_Device, &commandEncoderDescriptor);
     m_CurrentRenderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_CurrentCommandEncoder, &renderPassDesc);
-
-    wgpuTextureViewRelease(m_TextureView);
 
     return m_CurrentRenderPassEncoder;
 }
@@ -197,31 +196,50 @@ std::string RenderContext::ReadShaderCode(const char * filePath) {
 WGPURenderPipeline RenderContext::CreateRenderPipeline(const char *shaderPath) {
     auto shaderCode = ReadShaderCode(shaderPath);
 
-    WGPUColorTargetState colorTargetState{
-        .format = WGPUTextureFormat_RGBA8UnormSrgb
+    WGPUColorTargetState colorTargetState {
+        .format = WGPUTextureFormat_RGBA8Unorm,
     };
 
-    WGPUShaderModuleWGSLDescriptor wgslDesc {};
-    wgslDesc.code = shaderCode.c_str();
+    WGPUShaderModuleWGSLDescriptor shader_desc {
+        .code = shaderCode.c_str()
+    };
 
     WGPUShaderModuleDescriptor shaderModuleDescriptor {};
     WGPUShaderModule shaderModule = wgpuDeviceCreateShaderModule(m_Device, &shaderModuleDescriptor);
 
-    WGPUVertexState vertexState{
-            .module = shaderModule,
-            .entryPoint = "vert_main",
+    WGPUVertexState vertexState {
+        .module = shaderModule,
+        .entryPoint = "vert_main",
+        .constantCount = 0,
+        .constants = nullptr,
+        .bufferCount = 2,
+        .buffers = nullptr
     };
 
-    WGPUFragmentState fragmentState{
-            .module = shaderModule,
-            .entryPoint = "frag_main",
-            .targetCount = 1,
-            .targets = &colorTargetState
+    WGPUFragmentState fragmentState {
+        .module = shaderModule,
+        .entryPoint = "frag_main",
+        .constantCount = 0,
+        .constants = nullptr,
+        .targetCount = 1,
+        .targets = &colorTargetState
     };
 
     WGPURenderPipelineDescriptor descriptor{
-            .vertex = vertexState,
-            .fragment = &fragmentState
+        .vertex = vertexState,
+        .depthStencil = nullptr,
+        .fragment = &fragmentState,
+
+    };
+
+    descriptor.primitive.topology = WGPUPrimitiveTopology_TriangleList;
+    descriptor.primitive.frontFace = WGPUFrontFace_CCW;
+    descriptor.primitive.cullMode = WGPUCullMode_None;
+    descriptor.primitive.stripIndexFormat = WGPUIndexFormat_Uint32;
+
+    descriptor.multisample = WGPUMultisampleState {
+        .count = 1,
+        .alphaToCoverageEnabled = false
     };
 
     return wgpuDeviceCreateRenderPipeline(m_Device, &descriptor);

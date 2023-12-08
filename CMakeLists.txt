@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(AdvancedGraphics)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # IMGUI PATHS
 set(IMGUI_DIR lib/imgui)
@@ -49,7 +49,7 @@ if (APPLE)
     list(APPEND GLFW_SURFACE_EXTENSION src/platform/GlfwSurfaceMacos.m)
 endif (APPLE)
 
-add_executable(AdvancedGraphics ${IMGUI_SOURCES} ${GLFW_SURFACE_EXTENSION} src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/Interface.cpp src/Interface.h)
+add_executable(AdvancedGraphics ${IMGUI_SOURCES} ${GLFW_SURFACE_EXTENSION} src/main.cpp src/core/Window.h src/core/Window.cpp src/core/Application.cpp src/core/Application.h src/utils/constants.h src/utils/constants.h src/rendering/RenderContext.cpp src/rendering/RenderContext.h src/TraceApplication.cpp src/TraceApplication.h src/Interface.cpp src/Interface.h src/rendering/FrameRenderer.cpp src/rendering/FrameRenderer.h)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} webgpu_dawn webgpu_glfw)
@@ -61,15 +61,18 @@ if (WIN32)
 endif (WIN32)
 
 if (APPLE)
-#    target_compile_options(${PROJECT_NAME} PRIVATE -x objective-c)
-
     find_library(METAL Metal REQUIRED)
     find_library(FOUNDATION Foundation REQUIRED)
     find_library(QUARTZCORE QuartzCore REQUIRED)
-#    find_library(COREVIDEO CoreVideo REQUIRED)
-#    find_library(IOKIT IOKit REQUIRED)
 
-#    target_link_libraries(${PROJECT_NAME} "-framework Cocoa" "-framework CoreVideo" "-framework IOKit" "-framework QuartzCore")
     target_link_libraries(${PROJECT_NAME} ${METAL} ${FOUNDATION} ${QUARTZCORE})
 endif (APPLE)
+
+add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        ${CMAKE_BINARY_DIR}/assets
+)
 
