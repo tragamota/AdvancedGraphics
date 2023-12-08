@@ -12,7 +12,9 @@ void Interface::Init(const std::shared_ptr<Window>& window, WGPUDevice* device, 
     ImGui_ImplGlfw_InitForOther(window->GetGLFWWindow(), true);
     ImGui_ImplWGPU_Init(*device, 2,swapChainFormat);
 
-    io.Fonts->AddFontFromFileTTF("assets/Roboto.ttf", io.DisplayFramebufferScale.x * 15.0f, nullptr, nullptr);
+    AdaptWindowScaling(window->GetGLFWWindow());
+
+    io.Fonts->AddFontFromFileTTF("assets/Roboto.ttf", io.DisplayFramebufferScale.x * 13.0f, nullptr, nullptr);
     io.FontAllowUserScaling = true;
     io.FontGlobalScale = 1.0f / io.DisplayFramebufferScale.x;
     ImGui::StyleColorsDark();
@@ -22,6 +24,15 @@ void Interface::Destroy() {
     ImGui_ImplWGPU_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+}
+
+void Interface::AdaptWindowScaling(GLFWwindow* window) {
+    ImGuiIO& io = ImGui::GetIO();
+    float xScale, yScale;
+
+    glfwGetWindowContentScale(window, &xScale, &yScale);
+
+    io.DisplayFramebufferScale = ImVec2(xScale, yScale);
 }
 
 void Interface::BeginFrame() {

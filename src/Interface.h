@@ -15,6 +15,8 @@
 #include "core/Window.h"
 
 class Interface {
+    void AdaptWindowScaling(GLFWwindow *window);
+
 public:
     void Init(const std::shared_ptr<Window>& window, WGPUDevice*, WGPUTextureFormat);
     void Destroy();
