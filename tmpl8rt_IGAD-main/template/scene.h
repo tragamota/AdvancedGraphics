@@ -680,7 +680,7 @@ struct GridCell {
 struct GridNode {
 	aabb bounds;
 	int cellCount;
-	GridCell* cells;
+	std::vector<GridCell> cells;
 };
 
 class Grid {
@@ -689,6 +689,8 @@ private:
 	std::vector<Tri> triangles;
 	std::vector<float3> N;
 	GridNode gridNode;
+
+	int3 gridSize;
 
 	mat4 T;
 	mat4 Tinv;
@@ -700,21 +702,32 @@ public:
 	Grid() = default;
 
 	Grid(const char* file, int grids, mat4 t) {
-		BuildGrid(file, grids, grids, grids, t);
+		T = t;
+		Tinv = T.Inverted();
+		BuildGrid(file, grids, grids, grids);
 	}
 
 	Grid(const char* file, int width, int height, int depth, mat4 t) {
-		BuildGrid(file, width, height, depth, t);
+		T = t;
+		Tinv = T.Inverted();
+		BuildGrid(file, width, height, depth);
 	}
 
-	void BuildGrid(const char* file, int width, int height, int depth, mat4 transform = mat4::Identity()) {
+	void BuildGrid(const char* file, int width, int height, int depth) {
+		gridSize = int3(width, height, depth);
 		triangles = ReadMesh(file);
+
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
+			float3 edge2 = triangles[i].vertex2 - triangles[i].vertex0;
+			N.emplace_back(normalize(TransformVector(cross(edge1, edge2), T)));
+		}
 
 		aabb boundingSpace = findBoundingBox(&triangles);
 
 		gridNode.bounds = boundingSpace;
 		gridNode.cellCount = width * height * depth;
-		gridNode.cells = new GridCell[width * height * depth];
 
 		int tri_count = 0;
 
@@ -730,8 +743,8 @@ public:
 		for (int i = 0; i < width; ++i) {
 			for (int j = 0; j < height; ++j) {
 				for (int k = 0; k < depth; ++k) {
-					auto& cell = gridNode.cells[i * j * k];
-
+					auto cell = GridCell();
+					
 					float minX = boundingSpace.Minimum(0) + i * cellSizeX;
 					float minY = boundingSpace.Minimum(1) + j * cellSizeY;
 					float minZ = boundingSpace.Minimum(2) + k * cellSizeZ;
@@ -741,53 +754,30 @@ public:
 					float maxZ = minZ + cellSizeZ;
 
 					aabb cellBounds;
-					cellBounds.SetBounds({ minX, minY, minZ }, { maxX, maxY, maxZ });
 
-					if (boundingSpace.Intersection(cellBounds).Area() > 0.0f) {
-						cell.bounds = cellBounds;
+					cellBounds.bmin3 = { minX, minY, minZ };
+					cellBounds.bmax3 = { maxX, maxY, maxZ };
+					cell.bounds = cellBounds;
 
-						std::vector<uint> tri_indices;
+					std::vector<uint> tri_indices;
 						
-						for (int i = 0; i < triangles.size(); i++) {
-							const Tri& triangle = triangles[i];
+					for (int i = 0; i < triangles.size(); i++) {
+						const Tri& triangle = triangles[i];
+						
+						if (cellBounds.Contains(triangle.bounds.Center()) ||
+							cellBounds.Contains(triangle.bounds.bmax4) ||
+							cellBounds.Contains(triangle.bounds.bmin4)) {
 
-							if (cellBounds.Contains(triangle.bounds.Center()))
-							{
-								vertexCount += 1;
-								tri_indices.emplace_back(i);
-								continue;
-							}
-
-							if (cellBounds.Contains(triangle.bounds.bmax4))
-							{
-								vertexCount += 1;
-								tri_indices.emplace_back(i);
-								continue;
-							}
-
-							if (cellBounds.Contains(triangle.bounds.bmin4))
-							{
-								vertexCount += 1;
-								tri_indices.emplace_back(i);
-								continue;
-							}
+							tri_indices.emplace_back(triangle.idx);
 						}
-
-						cell.triIdx = tri_indices;
-						cell.triIndices = tri_indices.size();
 					}
+
+					cell.triIdx = tri_indices;
+					cell.triIndices = tri_indices.size();
+
+					gridNode.cells.emplace_back(cell);
 				}
 			}
-		}
-
-		mat4 T = transform;
-		mat4 Tinv = transform.Inverted();
-
-		for (int i = 0; i < triangles.size(); i++)
-		{
- 			float3 edge1 = triangles[i].vertex1 - triangles[i].vertex0;
-			float3 edge2 = triangles[i].vertex2 - triangles[i].vertex0;
-			N.emplace_back(normalize(TransformVector(cross(edge1, edge2), T)));
 		}
 	}
 
@@ -890,6 +880,20 @@ public:
 			ray.t = t, ray.objIdx = 1000 + triIdx;
 	}
 
+	bool rayAABBIntersect(const Ray& ray, const aabb& box, float& tNear, float& tFar) const {
+		float t1 = (box.Minimum(0) - ray.O.x) / ray.D.x;
+		float t2 = (box.Maximum(0) - ray.O.x) / ray.D.x;
+		float t3 = (box.Minimum(1) - ray.O.y) / ray.D.y;
+		float t4 = (box.Maximum(1) - ray.O.y) / ray.D.y;
+		float t5 = (box.Minimum(2) - ray.O.z) / ray.D.z;
+		float t6 = (box.Maximum(2) - ray.O.z) / ray.D.z;
+
+		tNear = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
+		tFar = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
+
+		return tNear < tFar && tFar > 0;
+	}
+
 	float IntersectAABB(Ray& ray, const aabb& bounds) const {
 		float tx1 = (bounds.bmin3.x - ray.O.x) * ray.rD.x;
 		float tx2 = (bounds.bmax3.x - ray.O.x) * ray.rD.x;
@@ -913,13 +917,17 @@ public:
 	}
 
 	int Intersect(Ray& ray) const {
+		float tNear, tFar;
+
 		int intersections = 1;
+		int boundChecks = 0;
 		bool isInside = false;
 
 		float3 O = TransformPosition_SSE(ray.O4, Tinv);
 		float3 D = TransformVector_SSE(ray.D4, Tinv);
 
 		Ray rayT = Ray(O, D, ray.t, ray.objIdx);
+		Ray rayTO = rayT;
 
 		if (ray.O.x >= gridNode.bounds.bmin3.x && ray.O.x <= gridNode.bounds.bmax3.x &&
 			ray.O.y >= gridNode.bounds.bmin3.y && ray.O.z <= gridNode.bounds.bmax3.y &&
@@ -928,28 +936,78 @@ public:
 			isInside = true;
 		}
 
-		float t = IntersectAABB(ray, gridNode.bounds);
+		if (!rayAABBIntersect(rayT, gridNode.bounds, tNear, tFar)) {
+			return 0;
+		}
+
+		float t = IntersectAABB(rayT, gridNode.bounds);
 
 		if (t < 0 && !isInside) {
 			return 0;
 		}
 
-		Ray movedRay = rayT;
-		int3 cellIndex = {};
+		int3 cellIndex = {0,0,0};
 
 		if (!isInside) {
 			float3 O = rayT.O + rayT.D * t;
 
-			movedRay = Ray(O, rayT.D, rayT.t, rayT.objIdx);
+			rayT = Ray(O, rayT.D, rayT.t, rayT.objIdx);
 		}
 
-		float3 currentPos = movedRay.O - gridOrigin;
+		//std::vector<GridCell> intersected;
+		//std::vector<uint> intersectIdx;
 
-		float z = currentPos.z / cellSize.z;
+		/*for (int i = 0; i < gridNode.cellCount; i++) {
+			float tNearInter, tFarInter;
+			auto cell = gridNode.cells[i];
 
-		cellIndex.x = std::clamp((int) floor(currentPos.x / cellSize.x),0, 9);
-		cellIndex.y = std::clamp((int) floor(currentPos.y / cellSize.y),0, 9);
-		cellIndex.z = std::clamp((int) floor(currentPos.z / cellSize.z),0, 9);
+			if (rayAABBIntersect(rayT, cell.bounds, tNearInter, tFarInter))
+			{
+				intersected.emplace_back(cell);
+				intersectIdx.emplace_back(i);
+			}
+		}*/
+
+		////for (auto cell : intersected) {
+		////	for (auto tri : cell.triIdx) {
+		////		IntersectTri(rayT, tri);
+		////	}
+		////}
+
+
+		float3 currentPos = rayT.O - gridOrigin;
+
+		int cellX = currentPos.x / cellSize.x;
+		int cellY = currentPos.y / cellSize.y;
+		int cellZ = currentPos.z / cellSize.z;
+
+		cellIndex.x = cellX;
+		cellIndex.y = cellY;
+		cellIndex.z = cellZ;
+
+		if (cellX >= gridSize.x) {
+			cellIndex.x = gridSize.x - 1;
+		}
+
+		if (cellY >= gridSize.y) {
+			cellIndex.y = gridSize.y - 1;
+		}
+
+		if (cellZ >= gridSize.z) {
+			cellIndex.z = gridSize.z - 1;
+		}
+		
+		if (cellX < 0) {
+			cellIndex.x = 0;
+		}
+
+		if (cellY < 0) {
+			cellIndex.y = 0;
+		}
+
+		if (cellZ < 0) {
+			cellIndex.z = 0;
+		}
 
 		float3 delta;
 
@@ -979,16 +1037,34 @@ public:
 
 		t = 0;
 
-		int objId = -1;
-		float dist = 1e30f;
+		bool foundTri = false;
 
 		while (true) {
+			if (foundTri) {
+				break;
+			}
+
+			boundChecks += 1;
+
+			auto cellIdx = cellIndex.x * gridSize.y * gridSize.z + cellIndex.y * gridSize.z + cellIndex.z;
+
+			auto cell = gridNode.cells[cellIdx];
+
+			for (auto tri : cell.triIdx) {
+				IntersectTri(rayTO, tri);
+
+				intersections += 1;
+
+				//if (rayTO.objIdx != ray.objIdx) {
+				//	foundTri = true;
+				//}
+			}
 
 			if (t_x < t_y) {
 				if (t_x < t_z) {
 					t = t_x;
 					t_x += delta.x;
-					
+
 					cellIndex.x += stepSize.x;
 				}
 				else {
@@ -1001,9 +1077,9 @@ public:
 			else {
 				if (t_y < t_z) {
 					t = t_y;
-					t_y += delta.x;
+					t_y += delta.y;
 
-					cellIndex.x += stepSize.x;
+					cellIndex.y += stepSize.y;
 				}
 				else {
 					t = t_z;
@@ -1011,30 +1087,22 @@ public:
 
 					cellIndex.z += stepSize.z;
 				}
+
 			}
 
 			// Check if the current position is outside the overall grid bounds
 			if (cellIndex.x < 0 || cellIndex.y < 0 || cellIndex.z < 0 ||
-				cellIndex.x > 9 || cellIndex.y > 9 || cellIndex.z > 9)
+				cellIndex.x >= gridSize.x || cellIndex.y >= gridSize.y || cellIndex.z >= gridSize.z)
 			{
 				break;
 			}
-
-			auto cell = gridNode.cells[cellIndex.x  + cellIndex.y + cellIndex.z];
-
-			for (auto tri : cell.triIdx) {
-				IntersectTri(ray, tri);
-
-				if (ray.t < dist) {
-					objId = ray.objIdx;
-					dist = ray.t;
-				}
-
-				//if (ray.objIdx != 1) {
-				//	break;
-				//}
-			}
 		}
+
+		//if (boundChecks != intersected.size()) {
+		//	std::cout << "NOT THE SAME" << std::endl;
+		//}
+
+		ray.t = rayTO.t, ray.objIdx = rayTO.objIdx;
 
 		return intersections;
 	}
@@ -1111,23 +1179,18 @@ public:
 	}
 
 	void buildOctreeRecursive(OctreeNode& node, const std::vector<Tri>& triangles, int depth) {
-		// You may want to add termination conditions based on the depth or number of triangles in a node.
-
 		if (depth >= 20) {
 			return;
 		}
 
-		// Subdivide the node into eight child nodes
 		node.nodes = new OctreeNode[8];
 
 		aabb childBounds[8];
 		splitBounds(node.bounds, childBounds);
 
-		// Subdivide the bounding box into eight child boxes
 		for (int i = 0; i < 8; ++i) {
 			node.nodes[i].bounds = childBounds[i];
 
-			// Find triangles within the child bounds
 			std::vector<Tri> trianglesInChild;
 			for (const auto& tri : triangles) {
 				if (childBounds[i].Contains(tri.bounds.Center())) {
@@ -1851,7 +1914,8 @@ public:
 
 	#ifdef USEGRID
 		mat4 T = mat4::Translate(float3(0, 0, -3)) * mat4::Scale(0.5f);
-		grid = Grid("../assets/spaceship.obj", 10, T);
+		// mat4 T;
+		grid = Grid("../assets/spaceship.obj", 15, T);
 	#endif
 
 	#ifdef USEOCTREE
@@ -2025,18 +2089,18 @@ public:
 	#endif
 
 	#ifdef SPEEDTRIX // hardcoded spheres, a bit faster this way but very ugly
-		{
-			// SIMD sphere intersection code by Jesse Vrooman
-			const __m128 oc = _mm_sub_ps( ray.O4, sphere.pos4 );
-			const float b = _mm_dp_ps( oc, ray.D4, 0x71 ).m128_f32[0];
-			const float d = b * b - (_mm_dp_ps( oc, oc, 0x71 ).m128_f32[0] - 0.36f);
-			if (d > 0)
-			{
-				const float t = -b - sqrtf( d );
-				const bool hit = t < ray.t && t > 0;
-				if (hit) { ray.t = t, ray.objIdx = 1; }
-			};
-		}
+		//{
+		//	// SIMD sphere intersection code by Jesse Vrooman
+		//	const __m128 oc = _mm_sub_ps( ray.O4, sphere.pos4 );
+		//	const float b = _mm_dp_ps( oc, ray.D4, 0x71 ).m128_f32[0];
+		//	const float d = b * b - (_mm_dp_ps( oc, oc, 0x71 ).m128_f32[0] - 0.36f);
+		//	if (d > 0)
+		//	{
+		//		const float t = -b - sqrtf( d );
+		//		const bool hit = t < ray.t && t > 0;
+		//		if (hit) { ray.t = t, ray.objIdx = 1; }
+		//	};
+		//}
 		//{
 		//	// SIMD sphere intersection code by Jesse Vrooman
 		//	const static __m128 s4 = _mm_setr_ps( 0, 2.5f, -3.07f, 4 );
@@ -2054,36 +2118,40 @@ public:
 		sphere.Intersect( ray );
 		sphere2.Intersect( ray );
 	#endif
-		cube.Intersect( ray );
-		torus.Intersect( ray );
+		//cube.Intersect( ray );
+		//torus.Intersect( ray );
 
 	#ifdef USEBVH
 		bvh.Intersect( ray );
 	#endif
 
 	#ifdef USEGRID
-		grid.Intersect(ray);
+		auto intersectTests = grid.Intersect(ray);
+
+		// std::cout << intersectTests << std::endl;
 	#endif
 
 	#ifdef USEOCTREE
-		octree.Intersect(ray);
+		auto intersectTests = octree.Intersect(ray);
+
+		// std::cout << intersectTests << std::endl;
 	#endif
 	}
 
 	bool IsOccluded( const Ray& ray ) const
 	{
-		if (cube.IsOccluded( ray )) 
-			return true;
+		//if (cube.IsOccluded( ray )) 
+		//	return true;
 	#ifdef SPEEDTRIX
-		const float3 oc = ray.O - sphere.pos;
-		const float b = dot( oc, ray.D ), c = dot( oc, oc ) - (0.6f * 0.6f);
-		const float d = b * b - c;
-		if (d > 0)
-		{
-			const float t = -b - sqrtf( d );
-			const bool hit = t < ray.t && t > 0;
-			if (hit) return true;
-		}
+		//const float3 oc = ray.O - sphere.pos;
+		//const float b = dot( oc, ray.D ), c = dot( oc, oc ) - (0.6f * 0.6f);
+		//const float d = b * b - c;
+		//if (d > 0)
+		//{
+		//	const float t = -b - sqrtf( d );
+		//	const bool hit = t < ray.t && t > 0;
+		//	if (hit) return true;
+		//}
 	#else
 		if (sphere.IsOccluded( ray )) return true;
 	#endif
@@ -2093,7 +2161,7 @@ public:
 		if (quad.IsOccluded( ray )) return true;
 	#endif
 		
-		if (torus.IsOccluded( ray )) return true;
+		/*if (torus.IsOccluded( ray )) return true;*/
 	
 	#ifdef USEBVH
 		Ray shadow = ray;
@@ -2105,9 +2173,18 @@ public:
 	#endif
 
 	#ifdef USEGRID
-		Ray shadow = ray;
+	/*	Ray shadow = ray;
 		shadow.t = 1e34f;
 		grid.Intersect(shadow);
+
+		if (shadow.objIdx >= 1000)
+			return true;*/
+	#endif
+
+	#ifdef USEOCTREE
+		Ray shadow = ray;
+		shadow.t = 1e34f;
+		octree.Intersect(shadow);
 
 		if (shadow.objIdx >= 1000)
 			return true;
@@ -2127,10 +2204,10 @@ public:
 	#else
 		if (objIdx == 0) N = quad.GetNormal(I);
 #endif
-		else if (objIdx == 1) N = sphere.GetNormal(I);
-		else if (objIdx == 2) N = sphere2.GetNormal(I);
-		else if (objIdx == 3) N = cube.GetNormal(I);
-		else if (objIdx == 10) N = torus.GetNormal(I);
+		//else if (objIdx == 1) N = sphere.GetNormal(I);
+		//else if (objIdx == 2) N = sphere2.GetNormal(I);
+		//else if (objIdx == 3) N = cube.GetNormal(I);
+		//else if (objIdx == 10) N = torus.GetNormal(I);
 #ifdef USEBVH
 		else if (objIdx >= 1000) N = bvh.GetNormal(objIdx - 1000);
 #endif
