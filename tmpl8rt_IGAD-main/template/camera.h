@@ -20,6 +20,7 @@ public:
 		topRight = float3( aspect, 1, 0 );
 		bottomLeft = float3( -aspect, -1, 0 );
 	}
+	
 	Ray GetPrimaryRay( const float x, const float y )
 	{
 		// calculate pixel position on virtual screen plane
@@ -28,9 +29,41 @@ public:
 		const float3 P = topLeft + u * (topRight - topLeft) + v * (bottomLeft - topLeft);
 		return Ray( camPos, normalize( P - camPos ) );
 	}
+
+	// Function to rotate the camera around a point on the Y-axis
+	void RotateAroundYAxis(const float degrees, const float3& rotationPoint)
+	{
+		float3 distance = 3;
+
+		float3 ahead = normalize(camTarget - camPos);
+		float3 tmpUp(0, 1, 0);
+		float3 right = normalize(cross(tmpUp, ahead));
+		float3 up = normalize(cross(ahead, right));
+
+		// Convert degrees to radians
+		float radians = degrees * (PI / 180);
+
+		// Rotate the translation vector
+		float newX = 3 * cos(radians) * (rotationPoint.x + 3);
+		float newZ = 3 * sin(radians) * (rotationPoint.z + 3);
+
+		//// Update camera position and target
+		camPos = float3(newX , rotationPoint.y, newZ);
+		camTarget = rotationPoint;
+
+		ahead = normalize(camTarget - camPos);
+		up = normalize(cross(ahead, right));
+		right = normalize(cross(up, ahead));
+
+		topLeft = camPos + 2 * ahead - aspect * right + up;
+		topRight = camPos + 2 * ahead + aspect * right + up;
+		bottomLeft = camPos + 2 * ahead - aspect * right - up;
+	}
+
 	bool HandleInput( const float t )
 	{
-		if (!WindowHasFocus()) return false;
+		if (!WindowHasFocus()) 
+			return false;
 		float speed = 0.0025f * t;
 		float3 ahead = normalize( camTarget - camPos );
 		float3 tmpUp( 0, 1, 0 );

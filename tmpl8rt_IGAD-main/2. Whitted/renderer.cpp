@@ -118,8 +118,18 @@ float3 Renderer::Trace( Ray& ray, int depth )
 // -----------------------------------------------------------
 // Main application tick function - Executed once per frame
 // -----------------------------------------------------------
+
+static int rotDegree = 0;
+
 void Renderer::Tick( float deltaTime )
 {
+	float3 rotationPoint = {-0.000155448914, 0.00000000, -0.409935474};
+	
+	if (rotDegree < 360) {
+		camera.RotateAroundYAxis(rotDegree, rotationPoint);
+		rotDegree++;
+	}
+
 	// animation
 	if (animating) scene.SetTime( anim_time += deltaTime * 0.002f );
 	// pixel loop
@@ -140,8 +150,11 @@ void Renderer::Tick( float deltaTime )
 	// performance report - running average - ms, MRays/s
 	avg = (1 - alpha) * avg + alpha * t.elapsed() * 1000;
 	if (alpha > 0.05f) alpha *= 0.75f;
+
 	// handle user input
-	camera.HandleInput( deltaTime );
+	if (rotDegree >= 360) {
+		camera.HandleInput(deltaTime);
+	}
 }
 
 // -----------------------------------------------------------
