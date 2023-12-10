@@ -726,6 +726,10 @@ public:
 
 		aabb boundingSpace = findBoundingBox(&triangles);
 
+		auto boundCenter = boundingSpace.Center();
+
+		auto b = TransformPosition_SSE(boundCenter, T);
+
 		gridNode.bounds = boundingSpace;
 		gridNode.cellCount = width * height * depth;
 
@@ -1064,10 +1068,6 @@ public:
 				IntersectTri(rayTO, tri);
 
 				intersections += 1;
-
-				//if (rayTO.objIdx != ray.objIdx) {
-				//	foundTri = true;
-				//}
 			}
 
 			if (t_x < t_y) {
@@ -1914,33 +1914,17 @@ public:
 		torus.T = mat4::Translate( -0.25f, 0, 2 ) * mat4::RotateX( PI / 4 );
 		torus.invT = torus.T.Inverted();
 	#ifdef USEBVH
-		mat4 T = mat4::Translate( float3( 0, 0, -3 ) );
+		mat4 T = mat4::Translate( float3( 0, 0, 0 ) ) * mat4::Scale(0.5f);
 		bvh = BVH( "../assets/spaceship.obj", T);
 	#endif
 
 	#ifdef USEGRID
-		mat4 T = mat4::Translate(float3(0, 0, -3));
-		// mat4 T;
-		grid = Grid("../assets/spaceship.obj", 25, T);
-
-		auto originInwardsX = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 1, 0, 0}));
-		auto originInwardsY = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 0, 1, 0 }));
-		auto originInwardsZ = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 0, 0, 1 }));
-		auto originOutWardsX = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ -1, 0, 0 }));
-
-		auto maxMiddleInWardsX = Ray(TransformPosition({ 0.0, 1.74386096, 2.47822809 }, T), normalize({ -1, -1, -1 }));
-
-		auto maxInWardsX = Ray(TransformPosition({ 4.77432108, 1.74386096, 2.47822809 }, T), normalize({ -1, -1, -1 }));
-
-		auto outOriginInwardsX = Ray(TransformPosition({ -4.88463198, -1.74386096, -3.29809904 }, T), normalize({ 1, 0, 0 }));
-
-		auto test = Ray(TransformPosition({ 0.751623213, 3.88385940, 7.68560982 }, T), {0.00949554145, 0.231257230,-0.972846270 });
-
-		grid.Intersect(test);
+		mat4 T = mat4::Translate(float3(0, 0, 0)) * mat4::Scale(0.5f);
+		grid = Grid("../assets/spaceship.obj", 10, T);
 	#endif
 
 	#ifdef USEOCTREE
-		mat4 T = mat4::Translate(float3(0, 0, -3)) * mat4::Scale(0.5f);
+		mat4 T = mat4::Translate(float3(0, 0, 0)) * mat4::Scale(0.5f);
 		octree = Octree("../assets/spaceship.obj", T);
 	#endif
 		SetTime( 0 );

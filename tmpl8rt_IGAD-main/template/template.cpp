@@ -317,6 +317,7 @@ void main()
 			ImGui::NewFrame();
 			app->uiUpdated = true;
 			app->UI(); // app->uiUpdated will be false if Render::UI() was not implemented
+			
 			if (app->uiUpdated)
 			{
 				ImGui::Render();
@@ -325,6 +326,7 @@ void main()
 				glfwGetFramebufferSize( window, &display_w, &display_h );
 				glViewport( 0, 0, display_w, display_h );
 			}
+
 			// finalize frame
 			glfwSwapBuffers( window );
 			glfwPollEvents();
