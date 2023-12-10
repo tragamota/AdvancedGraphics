@@ -929,61 +929,37 @@ public:
 		Ray rayT = Ray(O, D, ray.t, ray.objIdx);
 		Ray rayTO = rayT;
 
-		if (ray.O.x >= gridNode.bounds.bmin3.x && ray.O.x <= gridNode.bounds.bmax3.x &&
-			ray.O.y >= gridNode.bounds.bmin3.y && ray.O.z <= gridNode.bounds.bmax3.y &&
-			ray.O.z >= gridNode.bounds.bmin3.z && ray.O.y <= gridNode.bounds.bmax3.z) 
-		{
-			isInside = true;
-		}
-
-		if (!rayAABBIntersect(rayT, gridNode.bounds, tNear, tFar)) {
-			return 0;
-		}
-
-		float t = IntersectAABB(rayT, gridNode.bounds);
-
-		if (t < 0 && !isInside) {
-			return 0;
-		}
+		float t = IntersectAABB(rayT, gridNode.bounds) + 1e-5f;
 
 		int3 cellIndex = {0,0,0};
 
-		if (!isInside) {
+		if (t > 0) {
 			float3 O = rayT.O + rayT.D * t;
 
 			rayT = Ray(O, rayT.D, rayT.t, rayT.objIdx);
 		}
 
-		//std::vector<GridCell> intersected;
-		//std::vector<uint> intersectIdx;
+		if (rayT.O.x >= gridNode.bounds.bmin3.x && rayT.O.x <= gridNode.bounds.bmax3.x &&
+			rayT.O.y >= gridNode.bounds.bmin3.y && rayT.O.y <= gridNode.bounds.bmax3.y &&
+			rayT.O.z >= gridNode.bounds.bmin3.z && rayT.O.z <= gridNode.bounds.bmax3.z)
+		{
+			isInside = true;
+		}
 
-		/*for (int i = 0; i < gridNode.cellCount; i++) {
-			float tNearInter, tFarInter;
-			auto cell = gridNode.cells[i];
-
-			if (rayAABBIntersect(rayT, cell.bounds, tNearInter, tFarInter))
-			{
-				intersected.emplace_back(cell);
-				intersectIdx.emplace_back(i);
-			}
-		}*/
-
-		////for (auto cell : intersected) {
-		////	for (auto tri : cell.triIdx) {
-		////		IntersectTri(rayT, tri);
-		////	}
-		////}
-
+		if (!isInside && t < 0) {
+			return 0;
+		}
 
 		float3 currentPos = rayT.O - gridOrigin;
 
-		int cellX = currentPos.x / cellSize.x;
-		int cellY = currentPos.y / cellSize.y;
-		int cellZ = currentPos.z / cellSize.z;
+		int cellX = (currentPos.x / cellSize.x);
+		int cellY = (currentPos.y / cellSize.y);
+		int cellZ = (currentPos.z / cellSize.z);
 
 		cellIndex.x = cellX;
 		cellIndex.y = cellY;
 		cellIndex.z = cellZ;
+
 
 		if (cellX >= gridSize.x) {
 			cellIndex.x = gridSize.x - 1;
@@ -1011,9 +987,21 @@ public:
 
 		float3 delta;
 
-		delta.x = cellSize.x / ray.D.x;
-		delta.y = cellSize.y / ray.D.y;
-		delta.z = cellSize.z / ray.D.z;
+		delta.x = cellSize.x / rayT.D.x;
+		delta.y = cellSize.y / rayT.D.y;
+		delta.z = cellSize.z / rayT.D.z;
+
+		if (rayT.D.x == 0.0) {
+			delta.x = 0;
+		}
+
+		if (rayT.D.y == 0.0) {
+			delta.y = 0;
+		}
+
+		if (rayT.D.z == 0.0) {
+			delta.z = 0;
+		}
 		
 		int3 stepSize;
 
@@ -1030,25 +1018,47 @@ public:
 		if (delta.z < 0) {
 			delta.z = -delta.z;
 		}
+		
+		float3 oCell = currentPos / cellSize;
 
-		float t_x = (currentPos.x - gridOrigin.x) / delta.x;
-		float t_y = (currentPos.y - gridOrigin.y) / delta.y;
-		float t_z = (currentPos.z - gridOrigin.z) / delta.z;
+		float t_x = ((std::floor(oCell.x) + 1) * cellSize.x - currentPos.x) / rayT.D.x;
+		float t_y = ((std::floor(oCell.y) + 1) * cellSize.y - currentPos.y) / rayT.D.y;
+		float t_z = ((std::floor(oCell.z) + 1) * cellSize.z - currentPos.z) / rayT.D.z;
+
+		if (rayT.D.x < 0) {
+			t_x = (std::floor(oCell.x) * cellSize.x - currentPos.x) / rayT.D.x;
+		}
+
+		if (rayT.D.y < 0) {
+			t_y = (std::floor(oCell.y) * cellSize.y - currentPos.y) / rayT.D.y;
+		}
+
+		if (rayT.D.z < 0) {
+			t_z = (std::floor(oCell.z) * cellSize.z - currentPos.z) / rayT.D.z;
+		}
+
+		if (delta.x == 0.0) {
+			float t_x = 0;
+		}
+
+		if (delta.y == 0.0) {
+			float t_y = 0;
+		}
+		
+		if (delta.z == 0.0) {
+			float t_z = 0;
+		}
 
 		t = 0;
 
 		bool foundTri = false;
 
 		while (true) {
-			if (foundTri) {
-				break;
-			}
-
 			boundChecks += 1;
 
 			auto cellIdx = cellIndex.x * gridSize.y * gridSize.z + cellIndex.y * gridSize.z + cellIndex.z;
 
-			auto cell = gridNode.cells[cellIdx];
+			auto& cell = gridNode.cells[cellIdx];
 
 			for (auto tri : cell.triIdx) {
 				IntersectTri(rayTO, tri);
@@ -1097,10 +1107,6 @@ public:
 				break;
 			}
 		}
-
-		//if (boundChecks != intersected.size()) {
-		//	std::cout << "NOT THE SAME" << std::endl;
-		//}
 
 		ray.t = rayTO.t, ray.objIdx = rayTO.objIdx;
 
@@ -1908,14 +1914,29 @@ public:
 		torus.T = mat4::Translate( -0.25f, 0, 2 ) * mat4::RotateX( PI / 4 );
 		torus.invT = torus.T.Inverted();
 	#ifdef USEBVH
-		mat4 T = mat4::Translate( float3( 0, 0, -3 ) ) * mat4::Scale( 0.5f );
+		mat4 T = mat4::Translate( float3( 0, 0, -3 ) );
 		bvh = BVH( "../assets/spaceship.obj", T);
 	#endif
 
 	#ifdef USEGRID
-		mat4 T = mat4::Translate(float3(0, 0, -3)) * mat4::Scale(0.5f);
+		mat4 T = mat4::Translate(float3(0, 0, -3));
 		// mat4 T;
-		grid = Grid("../assets/spaceship.obj", 15, T);
+		grid = Grid("../assets/spaceship.obj", 25, T);
+
+		auto originInwardsX = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 1, 0, 0}));
+		auto originInwardsY = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 0, 1, 0 }));
+		auto originInwardsZ = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ 0, 0, 1 }));
+		auto originOutWardsX = Ray(TransformPosition({ -4.77463198, -1.74386096, -3.29809904 }, T), normalize({ -1, 0, 0 }));
+
+		auto maxMiddleInWardsX = Ray(TransformPosition({ 0.0, 1.74386096, 2.47822809 }, T), normalize({ -1, -1, -1 }));
+
+		auto maxInWardsX = Ray(TransformPosition({ 4.77432108, 1.74386096, 2.47822809 }, T), normalize({ -1, -1, -1 }));
+
+		auto outOriginInwardsX = Ray(TransformPosition({ -4.88463198, -1.74386096, -3.29809904 }, T), normalize({ 1, 0, 0 }));
+
+		auto test = Ray(TransformPosition({ 0.751623213, 3.88385940, 7.68560982 }, T), {0.00949554145, 0.231257230,-0.972846270 });
+
+		grid.Intersect(test);
 	#endif
 
 	#ifdef USEOCTREE
