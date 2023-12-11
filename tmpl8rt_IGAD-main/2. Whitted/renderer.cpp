@@ -3,11 +3,16 @@
 // -----------------------------------------------------------
 // Initialize the renderer
 // -----------------------------------------------------------
+
 void Renderer::Init()
 {
 	// create fp32 rgb pixel buffer to render to
 	accumulator = (float4*)MALLOC64( SCRWIDTH * SCRHEIGHT * 16 );
 	memset( accumulator, 0, SCRWIDTH * SCRHEIGHT * 16 );
+
+	traverseFrameBuffer = new int2[SCRWIDTH * SCRHEIGHT];
+	memset(traverseFrameBuffer, 0, SCRWIDTH * SCRHEIGHT);
+
 	// retrieve cam
 	FILE* f = fopen( "appstate.dat", "rb" );
 	if (f)
@@ -46,10 +51,10 @@ float3 Renderer::DirectIllumination( const float3& I, const float3& N )
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
-float3 Renderer::Trace( Ray& ray, int depth )
+float3 Renderer::Trace( Ray& ray, int depth, TraverseInformation* info)
 {
 	// intersect the ray with the scene
-	scene.FindNearest( ray );
+	scene.FindNearest( ray, info);
 	if (ray.objIdx == -1) /* ray left the scene */ return 0;
 	if (depth > MAXDEPTH) /* bouned too many times */ return 0;
 	
@@ -69,7 +74,7 @@ float3 Renderer::Trace( Ray& ray, int depth )
 	{
 		float3 R = reflect( ray.D, N );
 		Ray r( I + R * EPSILON, R );
-		out_radiance += reflectivity * albedo * Trace( r, depth + 1 );
+		out_radiance += reflectivity * albedo * Trace( r, depth + 1, info);
 	}
 
 	// handle dielectrics such as glass / water
@@ -123,33 +128,76 @@ static int rotDegree = 0;
 
 void Renderer::Tick( float deltaTime )
 {
-	float3 rotationPoint = {-0.000155448914, 0.00000000, -0.409935474};
+	#ifdef USESCENECOMPLEX
+		float3 rotationPoint = { 0.00000000, -1.53244197, 0.0620046854 };
+	#endif // USESCENECOMPLEX
+
+	#ifdef USESCENESIMPLE
+		float3 rotationPoint = {-0.000155448914, 0.00000000, -0.409935474};
+	#endif
+
+	#ifdef USESCENETEAPOT
+		float3 rotationPoint = {-0.0783755779, -0.427792668, 0.00870938320};
+	#endif
 	
 	if (rotDegree < 360) {
 		camera.RotateAroundYAxis(rotDegree, rotationPoint);
-		rotDegree++;
 	}
 
 	// animation
 	if (animating) scene.SetTime( anim_time += deltaTime * 0.002f );
 	// pixel loop
 	Timer t;
+	TraverseInformation traverseInfo;
 	// lines are executed as OpenMP parallel tasks (disabled in DEBUG)
-#pragma omp parallel for schedule(dynamic)
+	#pragma omp parallel for schedule(dynamic)
 	for (int y = 0; y < SCRHEIGHT; y++)
 	{
 		// trace a primary ray for each pixel on the line
-		for (int x = 0; x < SCRWIDTH; x++)
-			accumulator[x + y * SCRWIDTH] =
-			float4( Trace( camera.GetPrimaryRay( (float)x, (float)y ) ), 0 );
+		for (int x = 0; x < SCRWIDTH; x++) {
+			traverseInfo.intersections = 0;
+			traverseInfo.boundsChecks = 0;
+
+			accumulator[x + y * SCRWIDTH] = float4(Trace(camera.GetPrimaryRay((float)x, (float)y), 0, &traverseInfo), 0);
+
+			traverseFrameBuffer[x + y * SCRWIDTH] = int2(traverseInfo.intersections, traverseInfo.boundsChecks);
+		}
+		
 		// translate accumulator contents to rgb32 pixels
 		for (int dest = y * SCRWIDTH, x = 0; x < SCRWIDTH; x++)
-			screen->pixels[dest + x] =
-			RGBF32_to_RGB8( &accumulator[x + y * SCRWIDTH] );
+			screen->pixels[dest + x] = RGBF32_to_RGB8( &accumulator[x + y * SCRWIDTH] );
 	}
 	// performance report - running average - ms, MRays/s
 	avg = (1 - alpha) * avg + alpha * t.elapsed() * 1000;
-	if (alpha > 0.05f) alpha *= 0.75f;
+	
+	if (alpha > 0.05f) 
+		alpha *= 0.75f;
+
+	// output bounds / intersection test
+	if (rotDegree < 360) {
+		//Save traverse buffer info to disk
+		std::ostringstream pathBuilder;
+
+		pathBuilder << "TraverseInfo_" << rotDegree << ".csv";
+
+		std::ofstream traverseOutputFile(pathBuilder.str());
+
+		if (traverseOutputFile.is_open()) {
+			for (int y = 0; y < SCRHEIGHT; y++) {
+				for (int x = 0; x < SCRWIDTH; x++) {
+					auto& traversePixel = traverseFrameBuffer[x + y * SCRWIDTH];
+
+					traverseOutputFile << traversePixel.x << ";" << traversePixel.y << ";" << std::endl;
+				}
+			}
+		}
+
+		traverseOutputFile.close();
+
+		memset(traverseFrameBuffer, 0, SCRWIDTH * SCRHEIGHT);
+
+		rotDegree++;
+	}
 
 	// handle user input
 	if (rotDegree >= 360) {
@@ -166,7 +214,10 @@ void Renderer::UI()
 	ImGui::Checkbox( "Animate scene", &animating );
 	// ray query on mouse
 	Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
-	scene.FindNearest( r );
+	
+	TraverseInformation info = {};
+
+	scene.FindNearest(r, &info);
 	ImGui::Text( "Object id %i", r.objIdx );
 	ImGui::Text( "Frame: %5.2fms (%.1ffps)", avg, 1000 / avg );
 }

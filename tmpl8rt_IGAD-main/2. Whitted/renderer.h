@@ -3,15 +3,16 @@
 #define EPSILON		0.0001f
 #define MAXDEPTH	7 // live wild
 
+#include "Statistics.h"
+
 namespace Tmpl8
 {
-
 class Renderer : public TheApp
 {
 public:
 	// game flow methods
 	void Init();
-	float3 Trace( Ray& ray, int depth = 0 );
+	float3 Trace(Ray& ray, int depth = 0, TraverseInformation* info = {});
 	float3 DirectIllumination( const float3& I, const float3& N );
 	void Tick( float deltaTime );
 	void UI();
@@ -30,6 +31,8 @@ public:
 	// data members
 	int2 mousePos;
 	float4* accumulator;
+	int2* traverseFrameBuffer;
+
 	Scene scene;
 	Camera camera;
 	bool animating = false;

@@ -21,6 +21,13 @@
 
 #include <tiny_obj_loader.h>
 
+#include "Statistics.h"
+#include <set>
+
+// #define USESCENESIMPLE
+// #define USESCENECOMPLEX
+#define USESCENETEAPOT
+
 #define SPEEDTRIX
 // #define FOURLIGHTS
 // #define USEBVH
@@ -297,7 +304,7 @@ public:
 		if (tmax >= tmin && tmin < ray.t && tmax > 0) return tmin; else return 1e30f;
 	}
 
-	void Intersect( Ray& ray ) const
+	void Intersect( Ray& ray, TraverseInformation* info ) const
 	{
 		const float3 O = TransformPosition_SSE( ray.O4, invT );
 		const float3 D = TransformVector_SSE( ray.D4, invT );
@@ -308,8 +315,12 @@ public:
 		{
 			if (node->isLeaf())
 			{
-				for (uint i = 0; i < node->triCount; i++)
-					IntersectTri( rayT, triIdx[node->leftFirst + i] );
+				for (uint i = 0; i < node->triCount; i++) {
+					IntersectTri(rayT, triIdx[node->leftFirst + i]);
+
+					info->intersections += 1;
+				}
+
 				if (stackPtr == 0) break; else node = stack[--stackPtr];
 				continue;
 			}
@@ -317,6 +328,9 @@ public:
 			BVHNode* child2 = &bvhNode[node->leftFirst + 1];
 			float dist1 = IntersectAABB( rayT, child1->aabbMin, child1->aabbMax );
 			float dist2 = IntersectAABB( rayT, child2->aabbMin, child2->aabbMax );
+
+			info->boundsChecks += 2;
+
 			if (dist1 > dist2) { swap( dist1, dist2 ); swap( child1, child2 ); }
 			if (dist1 == 1e30f)
 			{
@@ -767,12 +781,47 @@ public:
 						
 					for (int i = 0; i < triangles.size(); i++) {
 						const Tri& triangle = triangles[i];
-						
-						if (cellBounds.Contains(triangle.bounds.Center()) ||
-							cellBounds.Contains(triangle.bounds.bmax4) ||
-							cellBounds.Contains(triangle.bounds.bmin4)) {
 
+						if (cellBounds.Contains(triangle.bounds.Center())) {
 							tri_indices.emplace_back(triangle.idx);
+
+							vertexCount += 1;
+
+							continue;
+						}
+						
+						if (triangle.vertex0.x >= cellBounds.bmin3.x && triangle.vertex0.x <= cellBounds.bmax3.x &&
+							triangle.vertex0.y >= cellBounds.bmin3.y && triangle.vertex0.y <= cellBounds.bmax3.y &&
+							triangle.vertex0.z >= cellBounds.bmin3.z && triangle.vertex0.z <= cellBounds.bmax3.z) 
+						{
+							tri_indices.emplace_back(triangle.idx);
+
+							vertexCount += 1;
+
+							continue;
+						}
+
+						if (triangle.vertex1.x >= cellBounds.bmin3.x && triangle.vertex1.x <= cellBounds.bmax3.x &&
+							triangle.vertex1.y >= cellBounds.bmin3.y && triangle.vertex1.y <= cellBounds.bmax3.y &&
+							triangle.vertex1.z >= cellBounds.bmin3.z && triangle.vertex1.z <= cellBounds.bmax3.z)
+						{
+							tri_indices.emplace_back(triangle.idx);
+
+							vertexCount += 1;
+
+							continue;
+						}
+
+						if (triangle.vertex2.x >= cellBounds.bmin3.x && triangle.vertex2.x <= cellBounds.bmax3.x &&
+							triangle.vertex2.y >= cellBounds.bmin3.y && triangle.vertex2.y <= cellBounds.bmax3.y &&
+							triangle.vertex2.z >= cellBounds.bmin3.z && triangle.vertex2.z <= cellBounds.bmax3.z
+							) 
+						{
+							tri_indices.emplace_back(triangle.idx);
+
+							vertexCount += 1;
+
+							continue;
 						}
 					}
 
@@ -920,11 +969,12 @@ public:
 			return -1e30f;
 	}
 
-	int Intersect(Ray& ray) const {
+	void Intersect(Ray& ray, TraverseInformation* info) const {
 		float tNear, tFar;
 
-		int intersections = 1;
-		int boundChecks = 0;
+		info->intersections = 0;
+		info->boundsChecks += 1;
+
 		bool isInside = false;
 
 		float3 O = TransformPosition_SSE(ray.O4, Tinv);
@@ -951,7 +1001,7 @@ public:
 		}
 
 		if (!isInside && t < 0) {
-			return 0;
+			return;
 		}
 
 		float3 currentPos = rayT.O - gridOrigin;
@@ -963,7 +1013,6 @@ public:
 		cellIndex.x = cellX;
 		cellIndex.y = cellY;
 		cellIndex.z = cellZ;
-
 
 		if (cellX >= gridSize.x) {
 			cellIndex.x = gridSize.x - 1;
@@ -1058,7 +1107,7 @@ public:
 		bool foundTri = false;
 
 		while (true) {
-			boundChecks += 1;
+			info->boundsChecks += 1;
 
 			auto cellIdx = cellIndex.x * gridSize.y * gridSize.z + cellIndex.y * gridSize.z + cellIndex.z;
 
@@ -1067,7 +1116,7 @@ public:
 			for (auto tri : cell.triIdx) {
 				IntersectTri(rayTO, tri);
 
-				intersections += 1;
+				info->intersections += 1;
 			}
 
 			if (t_x < t_y) {
@@ -1109,11 +1158,13 @@ public:
 		}
 
 		ray.t = rayTO.t, ray.objIdx = rayTO.objIdx;
-
-		return intersections;
 	}
 };
 #endif
+
+static int verticesInOctree = 0;
+
+static std::set<uint> uniqueTriIndices;
 
 #ifdef USEOCTREE
 struct Tri
@@ -1161,7 +1212,13 @@ public:
 		
 		root.bounds = boundingBox;
 
-		buildOctreeRecursive(root, triangles, 0);
+		std::vector<Tri*> triPointers(triangles.size());
+
+		for (int i = 0; i < triangles.size(); i++) {
+			triPointers[i] = &triangles[i];
+		}
+
+		buildOctreeRecursive(root, triPointers, 0);
 	}
 
 	void splitBounds(const aabb& parentBounds, aabb childBounds[8]) {
@@ -1184,8 +1241,8 @@ public:
 		return N[idx];
 	}
 
-	void buildOctreeRecursive(OctreeNode& node, const std::vector<Tri>& triangles, int depth) {
-		if (depth >= 20) {
+	void buildOctreeRecursive(OctreeNode& node, const std::vector<Tri*>& triangles, int depth) {
+		if (depth >= 35) {
 			return;
 		}
 
@@ -1197,30 +1254,45 @@ public:
 		for (int i = 0; i < 8; ++i) {
 			node.nodes[i].bounds = childBounds[i];
 
-			std::vector<Tri> trianglesInChild;
+			std::vector<Tri*> trianglesInChild;
 			for (const auto& tri : triangles) {
-				if (childBounds[i].Contains(tri.bounds.Center())) {
-					trianglesInChild.push_back(tri);
-					continue;
-				}
-			
-				if (childBounds[i].Contains(tri.bounds.bmin4)) {
-					trianglesInChild.push_back(tri);
+				if (tri->vertex0.x >= childBounds[i].bmin3.x && tri->vertex0.x <= childBounds[i].bmax3.x &&
+					tri->vertex0.y >= childBounds[i].bmin3.y && tri->vertex0.y <= childBounds[i].bmax3.y &&
+					tri->vertex0.z >= childBounds[i].bmin3.z && tri->vertex0.z <= childBounds[i].bmax3.z) 
+				{
+					trianglesInChild.emplace_back(tri);
+
 					continue;
 				}
 
-				if (childBounds[i].Contains(tri.bounds.bmax4)) {
-					trianglesInChild.push_back(tri);
+				if (tri->vertex1.x >= childBounds[i].bmin3.x && tri->vertex1.x <= childBounds[i].bmax3.x &&
+					tri->vertex1.y >= childBounds[i].bmin3.y && tri->vertex1.y <= childBounds[i].bmax3.y &&
+					tri->vertex1.z >= childBounds[i].bmin3.z && tri->vertex1.z <= childBounds[i].bmax3.z) 
+				{
+					trianglesInChild.emplace_back(tri);
+
+					continue;
+				}
+
+				if (tri->vertex2.x >= childBounds[i].bmin3.x && tri->vertex2.x <= childBounds[i].bmax3.x &&
+					tri->vertex2.y >= childBounds[i].bmin3.y && tri->vertex2.y <= childBounds[i].bmax3.y &&
+					tri->vertex2.z >= childBounds[i].bmin3.z && tri->vertex2.z <= childBounds[i].bmax3.z) 
+				{
+					trianglesInChild.emplace_back(tri);
+
 					continue;
 				}
 			}
 
-			if (trianglesInChild.size() < 10) {
+			if (trianglesInChild.size() < 50 || depth + 1 == 35) {
 				node.nodes[i].triIndices.resize(trianglesInChild.size());
 
 				for (int j = 0; j < trianglesInChild.size(); j++) {
-					node.nodes[i].triIndices[j] = trianglesInChild[j].idx;
+					node.nodes[i].triIndices[j] = trianglesInChild[j]->idx;
+					uniqueTriIndices.emplace(trianglesInChild[j]->idx);
 				}
+
+				verticesInOctree += trianglesInChild.size();
 
 				continue;
 			}
@@ -1272,7 +1344,7 @@ public:
 			ray.t = t, ray.objIdx = 1000 + triIdx;
 	}
 
-	void traverseOctreeRay(const OctreeNode& node, Ray& ray, int depth = 0) const {
+	void traverseOctreeRay(const OctreeNode& node, Ray& ray, int depth = 0, TraverseInformation* info = {}) const {
 		float tNear, tFar;
 
 		if (rayAABBIntersect(ray, node.bounds, tNear, tFar)) {
@@ -1280,21 +1352,25 @@ public:
 				if (node.nodes[i].nodes == nullptr) {
 					for (auto idx : node.nodes[i].triIndices) {
 						IntersectTri(ray, idx);
+
+						info->intersections += 1;
 					}
 					continue;
 				}
 
-				traverseOctreeRay(node.nodes[i], ray, depth + 1);
+				traverseOctreeRay(node.nodes[i], ray, depth + 1, info);
 			}
 		}
+
+		info->boundsChecks += 1;
 	}
 
-	void Intersect(Ray& ray) const {
+	void Intersect(Ray& ray, TraverseInformation* info = {}) const {
 		const float3 O = TransformPosition_SSE(ray.O4, Tinv);
 		const float3 D = TransformVector_SSE(ray.D4, Tinv);
 		Ray rayT(O, D, ray.t, ray.objIdx);
 
-		traverseOctreeRay(root, rayT, 0);
+		traverseOctreeRay(root, rayT, 0, info);
 
 		ray.t = rayT.t, ray.objIdx = rayT.objIdx;
 	}
@@ -1913,19 +1989,32 @@ public:
 		torus = Torus( 10, 0.8f, 0.25f );						// 10: torus
 		torus.T = mat4::Translate( -0.25f, 0, 2 ) * mat4::RotateX( PI / 4 );
 		torus.invT = torus.T.Inverted();
+
+	#ifdef USESCENESIMPLE
+		mat4 T = mat4::Translate(float3(0, 0, 0)) * mat4::Scale(0.5f);
+		const char* modelPath = "../assets/spaceship.obj";
+	#endif
+
+	#ifdef USESCENECOMPLEX
+		mat4 T = mat4::Translate(float3(0, -3, 0)) * mat4::Scale(0.5f);
+		const char* modelPath = "../assets/mercedes.obj";
+	#endif
+
+	#ifdef USESCENETEAPOT
+		mat4 T = mat4::Translate(float3(0, -2, 0)) * mat4::Scale(0.3f);
+		const char* modelPath = "../assets/teapot.obj";
+	#endif
+
 	#ifdef USEBVH
-		mat4 T = mat4::Translate( float3( 0, 0, 0 ) ) * mat4::Scale(0.5f);
-		bvh = BVH( "../assets/spaceship.obj", T);
+		bvh = BVH( modelPath, T);
 	#endif
 
 	#ifdef USEGRID
-		mat4 T = mat4::Translate(float3(0, 0, 0)) * mat4::Scale(0.5f);
-		grid = Grid("../assets/spaceship.obj", 10, T);
+		grid = Grid(modelPath, 10, T);
 	#endif
 
 	#ifdef USEOCTREE
-		mat4 T = mat4::Translate(float3(0, 0, 0)) * mat4::Scale(0.5f);
-		octree = Octree("../assets/spaceship.obj", T);
+		octree = Octree(modelPath, T);
 	#endif
 		SetTime( 0 );
 		// Note: once we have triangle support we should get rid of the class
@@ -2040,7 +2129,7 @@ public:
 	#endif
 	}
 
-	void FindNearest( Ray& ray ) const
+	void FindNearest( Ray& ray, TraverseInformation* info) const
 	{
 		// room walls - ugly shortcut for more speed
 	#ifdef SPEEDTRIX
@@ -2127,19 +2216,15 @@ public:
 		//torus.Intersect( ray );
 
 	#ifdef USEBVH
-		bvh.Intersect( ray );
+		bvh.Intersect( ray, info );
 	#endif
 
 	#ifdef USEGRID
-		auto intersectTests = grid.Intersect(ray);
-
-		// std::cout << intersectTests << std::endl;
+		grid.Intersect(ray, info);
 	#endif
 
 	#ifdef USEOCTREE
-		auto intersectTests = octree.Intersect(ray);
-
-		// std::cout << intersectTests << std::endl;
+		octree.Intersect(ray, info);
 	#endif
 	}
 
@@ -2169,12 +2254,12 @@ public:
 		/*if (torus.IsOccluded( ray )) return true;*/
 	
 	#ifdef USEBVH
-		Ray shadow = ray;
+	/*	Ray shadow = ray;
 		shadow.t = 1e34f;
 		bvh.Intersect( shadow );
 
 		if (shadow.objIdx >= 1000) 
-			return true;
+			return true;*/
 	#endif
 
 	#ifdef USEGRID
@@ -2189,7 +2274,10 @@ public:
 	#ifdef USEOCTREE
 		Ray shadow = ray;
 		shadow.t = 1e34f;
-		octree.Intersect(shadow);
+
+		TraverseInformation info = {};
+
+		octree.Intersect(shadow, &info);
 
 		if (shadow.objIdx >= 1000)
 			return true;
