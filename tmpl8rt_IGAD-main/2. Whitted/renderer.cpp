@@ -128,39 +128,37 @@ static int rotDegree = 0;
 
 void Renderer::Tick( float deltaTime )
 {
-	#ifdef USESCENECOMPLEX
-		float3 rotationPoint = { 0.00000000, -1.53244197, 0.0620046854 };
-	#endif // USESCENECOMPLEX
+	//#ifdef USESCENECOMPLEX
+	//	float3 rotationPoint = { 0.00000000, -1.53244197, 0.0620046854 };
+	//#endif // USESCENECOMPLEX
 
-	#ifdef USESCENESIMPLE
-		float3 rotationPoint = {-0.000155448914, 0.00000000, -0.409935474};
-	#endif
+	//#ifdef USESCENESIMPLE
+	//	float3 rotationPoint = {-0.000155448914, 0.00000000, -0.409935474};
+	//#endif
 
-	#ifdef USESCENETEAPOT
-		float3 rotationPoint = {-0.0783755779, -0.427792668, 0.00870938320};
-	#endif
+	//#ifdef USESCENETEAPOT
+	//	float3 rotationPoint = {-0.0783755779, -0.427792668, 0.00870938320};
+	//#endif
 	
-	if (rotDegree < 360) {
+	/*if (rotDegree < 360) {
 		camera.RotateAroundYAxis(rotDegree, rotationPoint);
-	}
+	}*/
 
 	// animation
 	if (animating) scene.SetTime( anim_time += deltaTime * 0.002f );
 	// pixel loop
 	Timer t;
-	TraverseInformation traverseInfo;
 	// lines are executed as OpenMP parallel tasks (disabled in DEBUG)
 	#pragma omp parallel for schedule(dynamic)
 	for (int y = 0; y < SCRHEIGHT; y++)
 	{
+		TraverseInformation traverseInfo;
+
 		// trace a primary ray for each pixel on the line
 		for (int x = 0; x < SCRWIDTH; x++) {
-			traverseInfo.intersections = 0;
-			traverseInfo.boundsChecks = 0;
-
 			accumulator[x + y * SCRWIDTH] = float4(Trace(camera.GetPrimaryRay((float)x, (float)y), 0, &traverseInfo), 0);
 
-			traverseFrameBuffer[x + y * SCRWIDTH] = int2(traverseInfo.intersections, traverseInfo.boundsChecks);
+			// traverseFrameBuffer[x + y * SCRWIDTH] = int2(traverseInfo.intersections, traverseInfo.boundsChecks);
 		}
 		
 		// translate accumulator contents to rgb32 pixels
@@ -174,35 +172,37 @@ void Renderer::Tick( float deltaTime )
 		alpha *= 0.75f;
 
 	// output bounds / intersection test
-	if (rotDegree < 360) {
-		//Save traverse buffer info to disk
-		std::ostringstream pathBuilder;
+	//if (rotDegree < 360) {
+	//	//Save traverse buffer info to disk
+	//	std::ostringstream pathBuilder;
 
-		pathBuilder << "TraverseInfo_" << rotDegree << ".csv";
+	//	pathBuilder << "TraverseInfo_" << rotDegree << ".csv";
 
-		std::ofstream traverseOutputFile(pathBuilder.str());
+	//	std::ofstream traverseOutputFile(pathBuilder.str());
 
-		if (traverseOutputFile.is_open()) {
-			for (int y = 0; y < SCRHEIGHT; y++) {
-				for (int x = 0; x < SCRWIDTH; x++) {
-					auto& traversePixel = traverseFrameBuffer[x + y * SCRWIDTH];
+	//	if (traverseOutputFile.is_open()) {
+	//		for (int y = 0; y < SCRHEIGHT; y++) {
+	//			for (int x = 0; x < SCRWIDTH; x++) {
+	//				auto& traversePixel = traverseFrameBuffer[x + y * SCRWIDTH];
 
-					traverseOutputFile << traversePixel.x << ";" << traversePixel.y << ";" << std::endl;
-				}
-			}
-		}
+	//				traverseOutputFile << traversePixel.x << ";" << traversePixel.y << ";" << std::endl;
+	//			}
+	//		}
+	//	}
 
-		traverseOutputFile.close();
+	//	traverseOutputFile.close();
 
-		memset(traverseFrameBuffer, 0, SCRWIDTH * SCRHEIGHT);
+	//	memset(traverseFrameBuffer, 0, SCRWIDTH * SCRHEIGHT);
 
-		rotDegree++;
-	}
+	//	rotDegree++;
+	//}
 
 	// handle user input
-	if (rotDegree >= 360) {
-		camera.HandleInput(deltaTime);
-	}
+	//if (rotDegree >= 360) {
+	//	camera.HandleInput(deltaTime);
+	//}
+
+	camera.HandleInput(deltaTime);
 }
 
 // -----------------------------------------------------------

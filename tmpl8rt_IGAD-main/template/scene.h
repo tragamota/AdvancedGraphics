@@ -24,15 +24,16 @@
 #include "Statistics.h"
 #include <set>
 
-// #define USESCENESIMPLE
+#define USESCENESIMPLE
 // #define USESCENECOMPLEX
-#define USESCENETEAPOT
+// #define USESCENETEAPOT
 
 #define SPEEDTRIX
 // #define FOURLIGHTS
 // #define USEBVH
-// #define USEOCTREE
-#define USEGRID
+#define USEOCTREE
+// #define USEGRID
+
 // bvh settings:
 #define SPATIALSPLITS
 #define SBVHUNSPLITTING
@@ -727,6 +728,56 @@ public:
 		BuildGrid(file, width, height, depth);
 	}
 
+	bool triangleIntersectsBoundingBox(const Tri& triangle, const aabb& boundingBox) const
+	{
+		float3 boxMin = { boundingBox.Minimum(0), boundingBox.Minimum(1), boundingBox.Minimum(2) };
+		float3 boxMax = { boundingBox.Maximum(0), boundingBox.Maximum(1), boundingBox.Maximum(2) };
+
+		float3 triMin = boundingBox.bmin3;
+
+		float3 triMax = boundingBox.bmax3;
+
+		// Check for no overlap along any axis
+		if (triMax.x < boxMin.x || triMin.x > boxMax.x ||
+			triMax.y < boxMin.y || triMin.y > boxMax.y ||
+			triMax.z < boxMin.z || triMin.z > boxMax.z) {
+			return false;
+		}
+
+		// Perform separating axis test
+		float3 triEdges[3] = {
+			{ triangle.vertex1.x - triangle.vertex0.x, triangle.vertex1.y - triangle.vertex0.y, triangle.vertex1.z - triangle.vertex0.z },
+			{ triangle.vertex2.x - triangle.vertex1.x, triangle.vertex2.y - triangle.vertex1.y, triangle.vertex2.z - triangle.vertex1.z },
+			{ triangle.vertex0.x - triangle.vertex2.x, triangle.vertex0.y - triangle.vertex2.y, triangle.vertex0.z - triangle.vertex2.z }
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			float3 axis = {
+				boundingBox.bmin[i + 0] - boundingBox.bmax[i + 0],
+				boundingBox.bmin[i + 1] - boundingBox.bmax[i + 1],
+				boundingBox.bmin[i + 2] - boundingBox.bmax[i + 2]
+			};
+
+			float3 testAxis = {
+				axis.y * triEdges[i].z - axis.z * triEdges[i].y,
+				axis.z * triEdges[i].x - axis.x * triEdges[i].z,
+				axis.x * triEdges[i].y - axis.y * triEdges[i].x
+			};
+
+			float projTri = testAxis.x * triangle.vertex0.x + testAxis.y * triangle.vertex0.y + testAxis.z * triangle.vertex0.z;
+			float projBox = testAxis.x * (boxMin.x + boxMax.x) * 0.5f + testAxis.y * (boxMin.y + boxMax.y) * 0.5f + testAxis.z * (boxMin.z + boxMax.z) * 0.5f;
+
+			float h = boundingBox.Extend(i);
+			float triRadius = std::abs(testAxis.x * h) + std::abs(testAxis.y * h) + std::abs(testAxis.z * h);
+
+			if (projTri + triRadius < projBox || projTri - triRadius > projBox) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	void BuildGrid(const char* file, int width, int height, int depth) {
 		gridSize = int3(width, height, depth);
 		triangles = ReadMesh(file);
@@ -780,7 +831,7 @@ public:
 					std::vector<uint> tri_indices;
 						
 					for (int i = 0; i < triangles.size(); i++) {
-						const Tri& triangle = triangles[i];
+						const Tri& triangle = triangles[i]; 
 
 						if (cellBounds.Contains(triangle.bounds.Center())) {
 							tri_indices.emplace_back(triangle.idx);
@@ -823,6 +874,14 @@ public:
 
 							continue;
 						}
+
+						if (triangleIntersectsBoundingBox(triangle, cellBounds)) {
+							tri_indices.emplace_back(triangle.idx);
+
+							vertexCount += 1;
+
+							continue;
+						}
 					}
 
 					cell.triIdx = tri_indices;
@@ -839,7 +898,6 @@ public:
 		return N[triIdx]; 
 	}
 	
-
 	std::vector<Tri> ReadMesh(const char* file) {
 		std::vector<Tri> triangles;
 
@@ -902,6 +960,14 @@ public:
 			boundingBox.bmax3 = fmaxf(boundingBox.bmax3, triangle.bounds.bmax3);
 		}
 		
+		boundingBox.bmin3.x -= 1e-2f;
+		boundingBox.bmin3.y -= 1e-2f;
+		boundingBox.bmin3.z -= 1e-2f;
+
+		boundingBox.bmax3.x += 1e-2f;
+		boundingBox.bmax3.y += 1e-2f;
+		boundingBox.bmax3.z += 1e-2f;
+
 		return boundingBox;
 	}
 
@@ -1105,7 +1171,6 @@ public:
 		t = 0;
 
 		bool foundTri = false;
-
 		while (true) {
 			info->boundsChecks += 1;
 
@@ -2010,7 +2075,7 @@ public:
 	#endif
 
 	#ifdef USEGRID
-		grid = Grid(modelPath, 10, T);
+		grid = Grid(modelPath, 20, T);
 	#endif
 
 	#ifdef USEOCTREE
@@ -2272,7 +2337,7 @@ public:
 	#endif
 
 	#ifdef USEOCTREE
-		Ray shadow = ray;
+	/*	Ray shadow = ray;
 		shadow.t = 1e34f;
 
 		TraverseInformation info = {};
@@ -2280,7 +2345,7 @@ public:
 		octree.Intersect(shadow, &info);
 
 		if (shadow.objIdx >= 1000)
-			return true;
+			return true;*/
 	#endif
 
 		return false; // skip planes and rounded corners

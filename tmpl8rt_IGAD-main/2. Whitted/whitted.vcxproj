@@ -179,6 +179,7 @@
     <ClInclude Include="..\template\surface.h" />
     <ClInclude Include="..\template\tmplmath.h" />
     <ClInclude Include="renderer.h" />
+    <ClInclude Include="Statistics.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\template\LICENSE" />

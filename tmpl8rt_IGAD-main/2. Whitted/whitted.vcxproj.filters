@@ -92,6 +92,9 @@
     <ClInclude Include="..\template\camera.h">
       <Filter>template</Filter>
     </ClInclude>
+    <ClInclude Include="Statistics.h">
+      <Filter>template</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\template\LICENSE">
