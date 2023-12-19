@@ -8,7 +8,7 @@ inline Window* CastWindowPointer(GLFWwindow* window) {
     return static_cast<Window*>(glfwGetWindowUserPointer(window));
 }
 
-inline void bindWindowCallbacks(GLFWwindow* window) {
+void Window::BindWindowCallbacks(GLFWwindow* window) {
     glfwSetDropCallback(window, [](GLFWwindow* caller, int drops, const char** c_paths)  {
         auto windowStructure = CastWindowPointer(caller);
 
@@ -35,6 +35,9 @@ inline void bindWindowCallbacks(GLFWwindow* window) {
         auto windowStructure = CastWindowPointer(caller);
 
         if(windowStructure->OnFramebufferResize) {
+            windowStructure->m_FrameWidth = width;
+            windowStructure->m_FrameHeight = height;
+
             windowStructure->OnFramebufferResize(width, height);
         }
     });
@@ -98,7 +101,7 @@ Window::Window(const WindowParameters& params) {
     glfwSetWindowAttrib(m_Window, GLFW_RESIZABLE, params.resizable);
     glfwSetWindowUserPointer(m_Window, this);
 
-    bindWindowCallbacks(m_Window);
+    this->BindWindowCallbacks(m_Window);
 }
 
 Window::~Window()  {
@@ -149,4 +152,11 @@ void Window::ChangeWindowSize(int width, int height) const {
 
 GLFWwindow* Window::GetGLFWWindow() {
     return m_Window;
+}
+
+WindowFrameSize Window::GetWindowFrameBuffer() const {
+    return {
+        .width = m_FrameWidth,
+        .height = m_FrameHeight
+    };
 }

@@ -8,21 +8,25 @@
 #include <webgpu/webgpu.h>
 
 #include "../core/Window.h"
-#include "../Interface.h"
+
+typedef struct ContextResources {
+    WGPUDevice* device;
+    WGPUQueue* queue;
+    WGPUAdapter* adapter;
+    WGPUTextureFormat surfaceFormat;
+} ContextResources;
 
 class RenderContext {
 public:
     void Init(const std::shared_ptr<Window>& window);
     void Destroy();
 
-    void ResizeSwapChain(int, int);
-    void RegisterInterface(const std::shared_ptr<Window>& window, Interface* interface);
+    void ResizeSwapChain(WindowFrameSize);
+    void SubmitCommandBuffer(int);
     void Present();
 
-    WGPURenderPassEncoder GetRenderPass();
-    WGPURenderPipeline CreateRenderPipeline(const char* );
-
-    void SubmitCommandBuffer(int);
+    [[nodiscard]] const WGPURenderPassEncoder* GetRenderPass();
+    [[nodiscard]] ContextResources GetContextResources();
 
     [[nodiscard]] bool HasError() const;
     [[nodiscard]] const std::string& ErrorMessage() const;
@@ -30,6 +34,8 @@ public:
 private:
     bool m_DawnError = false;
     std::string m_DawnErrorMessage;
+
+    WGPUTextureFormat m_PreferredTextureFormat = WGPUTextureFormat_BGRA8Unorm;
 
     WGPUInstance m_Instance   = nullptr;
     WGPUSurface m_Surface     = nullptr;

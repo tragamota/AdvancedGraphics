@@ -4,13 +4,13 @@
 
 #include "Interface.h"
 
-void Interface::Init(const std::shared_ptr<Window>& window, WGPUDevice* device, WGPUTextureFormat swapChainFormat) {
+void Interface::Init(const std::shared_ptr<Window>& window, ContextResources& contextResources) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
     ImGui_ImplGlfw_InitForOther(window->GetGLFWWindow(), true);
-    ImGui_ImplWGPU_Init(*device, 2,swapChainFormat);
+    ImGui_ImplWGPU_Init(*contextResources.device, 2, contextResources.surfaceFormat);
 
     AdaptWindowScaling(window->GetGLFWWindow());
 
@@ -43,16 +43,21 @@ void Interface::BeginFrame() {
 
 void Interface::EndFrame() {
     ImGui::EndFrame();
+    ImGui::Render();
 }
 
 void Interface::DrawUI() {
+    auto io = ImGui::GetIO();
+
     ImGui::Begin("Demo window");
     ImGui::Button("Hello!");
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
     ImGui::End();
 }
 
-void Interface::Render(WGPURenderPassEncoder* renderPassEncoder) {
-    ImGui::Render();
+int Interface::Render(const WGPURenderPassEncoder* renderPassEncoder) {
+    ImDrawData* drawData = ImGui::GetDrawData();
+    ImGui_ImplWGPU_RenderDrawData(drawData, *renderPassEncoder);
 
-    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), *renderPassEncoder);
+    return drawData->CmdListsCount;
 }

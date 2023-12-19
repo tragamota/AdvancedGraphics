@@ -33,10 +33,6 @@ void RenderContext::Destroy() {
     wgpuInstanceRelease(m_Instance);
 }
 
-void RenderContext::RegisterInterface(const std::shared_ptr<Window>& window, Interface *interface) {
-    interface->Init(window, &m_Device, WGPUTextureFormat_BGRA8Unorm);
-}
-
 void RenderContext::CreateInstance() {
     WGPUInstanceDescriptor desc = {};
     desc.nextInChain = nullptr;
@@ -120,7 +116,7 @@ void RenderContext::InitDevices() {
         throw std::runtime_error("Requesting Queue failed");
     }
 
-    auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
+    auto onDeviceError = [](WGPUErrorType type, char const* message, void*) {
         std::cout << "Uncaptured device error: type " << type;
 
         if (message)
@@ -136,7 +132,7 @@ void RenderContext::InitDevices() {
 void RenderContext::InitSwapChain(int width, int height) {
     WGPUSwapChainDescriptor swapChainDesc = {
         .usage = WGPUTextureUsage_RenderAttachment,
-        .format = WGPUTextureFormat_BGRA8Unorm,
+        .format = m_PreferredTextureFormat,
         .width = static_cast<uint32_t>(width),
         .height = static_cast<uint32_t>(height),
         .presentMode = WGPUPresentMode_Fifo
@@ -150,108 +146,41 @@ void RenderContext::Present() {
     wgpuTextureViewRelease(m_TextureView);
 }
 
-WGPURenderPassEncoder RenderContext::GetRenderPass() {
+const WGPURenderPassEncoder* RenderContext::GetRenderPass() {
     m_TextureView = wgpuSwapChainGetCurrentTextureView(m_SwapChain);
 
-    if(m_CurrentCommandEncoder  && m_CurrentCommandEncoder) {
-        wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
-        wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
-    }
+    WGPUCommandEncoderDescriptor commandEncoderDescriptor { };
 
-    WGPURenderPassColorAttachment attachment{
-            .view = m_TextureView,
-            .loadOp = WGPULoadOp_Clear,
-            .storeOp = WGPUStoreOp_Store,
-            .clearValue = WGPUColor {1.0f, 1.0f, 1.0f, 0.0f}
+    WGPURenderPassColorAttachment attachment {
+        .view = m_TextureView,
+        .loadOp = WGPULoadOp_Clear,
+        .storeOp = WGPUStoreOp_Store,
+        .clearValue = WGPUColor {0.05f, 0.05f, 0.05f, 0.5f}
     };
 
     WGPURenderPassDescriptor renderPassDesc {
-            .colorAttachmentCount = 1,
-            .colorAttachments = &attachment
+        .colorAttachmentCount = 1,
+        .colorAttachments = &attachment
     };
-
-    WGPUCommandEncoderDescriptor commandEncoderDescriptor = {};
 
     m_CurrentCommandEncoder = wgpuDeviceCreateCommandEncoder(m_Device, &commandEncoderDescriptor);
     m_CurrentRenderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_CurrentCommandEncoder, &renderPassDesc);
 
-    return m_CurrentRenderPassEncoder;
-}
-
-std::string RenderContext::ReadShaderCode(const char * filePath) {
-    std::stringstream buffer;
-    std::ifstream inputFile(filePath);
-
-    if (!inputFile.is_open()) {
-        throw std::runtime_error("Shader file doesn't exist");
-    }
-
-    buffer << inputFile.rdbuf();
-
-    inputFile.close();
-
-    return buffer.str();
-}
-
-WGPURenderPipeline RenderContext::CreateRenderPipeline(const char *shaderPath) {
-    auto shaderCode = ReadShaderCode(shaderPath);
-
-    WGPUColorTargetState colorTargetState {
-        .format = WGPUTextureFormat_RGBA8Unorm,
-    };
-
-    WGPUShaderModuleWGSLDescriptor shader_desc {
-        .code = shaderCode.c_str()
-    };
-
-    WGPUShaderModuleDescriptor shaderModuleDescriptor {};
-    WGPUShaderModule shaderModule = wgpuDeviceCreateShaderModule(m_Device, &shaderModuleDescriptor);
-
-    WGPUVertexState vertexState {
-        .module = shaderModule,
-        .entryPoint = "vert_main",
-        .constantCount = 0,
-        .constants = nullptr,
-        .bufferCount = 2,
-        .buffers = nullptr
-    };
-
-    WGPUFragmentState fragmentState {
-        .module = shaderModule,
-        .entryPoint = "frag_main",
-        .constantCount = 0,
-        .constants = nullptr,
-        .targetCount = 1,
-        .targets = &colorTargetState
-    };
-
-    WGPURenderPipelineDescriptor descriptor{
-        .vertex = vertexState,
-        .depthStencil = nullptr,
-        .fragment = &fragmentState,
-
-    };
-
-    descriptor.primitive.topology = WGPUPrimitiveTopology_TriangleList;
-    descriptor.primitive.frontFace = WGPUFrontFace_CCW;
-    descriptor.primitive.cullMode = WGPUCullMode_None;
-    descriptor.primitive.stripIndexFormat = WGPUIndexFormat_Uint32;
-
-    descriptor.multisample = WGPUMultisampleState {
-        .count = 1,
-        .alphaToCoverageEnabled = false
-    };
-
-    return wgpuDeviceCreateRenderPipeline(m_Device, &descriptor);
+    return &m_CurrentRenderPassEncoder;
 }
 
 void RenderContext::SubmitCommandBuffer(int commandCount) {
-    WGPUCommandBufferDescriptor descriptor {};
+    WGPUCommandBufferDescriptor commandBufferDescriptor {};
+    WGPUCommandBuffer commandBuffer;
 
-    auto commandBuffer = wgpuCommandEncoderFinish(m_CurrentCommandEncoder, &descriptor);
+    wgpuRenderPassEncoderEnd(m_CurrentRenderPassEncoder);
 
-    wgpuQueueSubmit(m_Queue, 1, &commandBuffer);
+    commandBuffer = wgpuCommandEncoderFinish(m_CurrentCommandEncoder, &commandBufferDescriptor);
+    wgpuQueueSubmit(m_Queue, commandCount, &commandBuffer);
+
     wgpuCommandBufferRelease(commandBuffer);
+    wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
+    wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
 }
 
 bool RenderContext::HasError() const {
@@ -262,8 +191,17 @@ const std::string& RenderContext::ErrorMessage() const {
     return m_DawnErrorMessage;
 }
 
-void RenderContext::ResizeSwapChain(int width, int height) {
+void RenderContext::ResizeSwapChain(WindowFrameSize frameSize) {
     wgpuSwapChainRelease(m_SwapChain);
 
-    InitSwapChain(width, height);
+    InitSwapChain(frameSize.width, frameSize.height);
+}
+
+ContextResources RenderContext::GetContextResources() {
+    return ContextResources {
+        .device = &m_Device,
+        .queue = &m_Queue,
+        .adapter = &m_Adapter,
+        .surfaceFormat = m_PreferredTextureFormat
+    };
 }

@@ -9,29 +9,45 @@ void TraceApplication::Init() {
     Application::Init();
 
     m_MainWindow->OnFramebufferResize = [this](int width, int height) {
-        OnFrameBufferResize(width, height);
+        m_ResizeRequested = true;
     };
 
+    auto contextResources = m_Context.GetContextResources();
+
     m_Context.Init(m_MainWindow);
-    m_Context.RegisterInterface(m_MainWindow, &m_Interface);
+    m_Interface.Init(m_MainWindow, contextResources);
+    m_FrameRenderer = FrameRenderer(contextResources);
 }
 
 void TraceApplication::OnTick(double elapsedTime) {
+    Update();
+    Render();
+
+    std::cout << "Tick happened with an elapsed time of : " << elapsedTime << std::endl;
+}
+
+void TraceApplication::Update() {
+    wgpuDeviceTick(*m_Context.GetContextResources().device);
+
+    if(m_ResizeRequested) {
+        m_Context.ResizeSwapChain(m_MainWindow->GetWindowFrameBuffer());
+        m_ResizeRequested = false;
+    }
+}
+
+void TraceApplication::Render() {
     auto renderPass = m_Context.GetRenderPass();
 
     m_Interface.BeginFrame();
-
     m_Interface.DrawUI();
-
     m_Interface.EndFrame();
-    m_Interface.Render(&renderPass);
 
-    wgpuRenderPassEncoderEnd(renderPass);
+    m_FrameRenderer.Draw(renderPass);
 
-    m_Context.SubmitCommandBuffer(2);
+    m_Interface.Render(renderPass);
+
+    m_Context.SubmitCommandBuffer(1);
     m_Context.Present();
-
-    // std::cout << "Tick happened with an elapsed time of : " << elapsedTime << std::endl;
 }
 
 void TraceApplication::ShutDown() {
@@ -41,8 +57,6 @@ void TraceApplication::ShutDown() {
     Application::ShutDown();
 }
 
-void TraceApplication::OnFrameBufferResize(int width, int height) {
-    m_Context.ResizeSwapChain(width, height);
-}
+
 
 

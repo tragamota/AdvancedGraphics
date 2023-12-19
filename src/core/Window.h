@@ -27,6 +27,11 @@ typedef struct WindowParameters {
     WindowMode mode;
 } WindowParameters;
 
+typedef struct WindowFrameSize {
+    int width;
+    int height;
+} WindowFrameSize;
+
 class Window {
 public:
     explicit Window(const WindowParameters&);
@@ -34,13 +39,14 @@ public:
     Window(const Window&) = delete;
     ~Window();
 
-//    std::any GetNativeWindowHandle();
     void ChangeTitle(const std::string&) const;
     void ChangeWindowMode(WindowMode) const;
     void ChangeWindowSize(int width, int height) const;
     void ShowWindow() const;
     void HideWindow() const;
     GLFWwindow* GetGLFWWindow();
+    [[nodiscard]] WindowFrameSize GetWindowFrameBuffer() const;
+
 
     static inline void PollEvents() {
         glfwPollEvents();
@@ -55,9 +61,11 @@ public:
     std::function<void(int, int, int)> OnMousePress;
     std::function<void(double, double)> OnMouseScroll;
     std::function<void()> OnClose;
-
 private:
     GLFWwindow* m_Window;
+    int m_FrameWidth, m_FrameHeight;
+
+    static void BindWindowCallbacks(GLFWwindow*);
 };
 
 #endif //ADVANCEDGRAPHICS_WINDOW_H

@@ -5,24 +5,28 @@
 #ifndef ADVANCEDGRAPHICS_FRAMERENDERER_H
 #define ADVANCEDGRAPHICS_FRAMERENDERER_H
 
-
 #include <webgpu/webgpu.h>
+#include "RenderContext.h"
 
 class FrameRenderer {
-    WGPUDevice* m_RenderDevice;
-    WGPURenderPipeline* m_RenderPipeline;
+    ContextResources m_ContextResources;
 
-    WGPUBuffer m_VertexBuffer;
-    WGPUBuffer m_UvBuffer;
+    WGPUBuffer m_VertexBuffer = nullptr;
+    WGPUBuffer m_IndexBuffer = nullptr;
 
+    WGPURenderPipeline m_pipeline;
+
+    void BuildPipeline();
+    void BuildBuffers();
+
+    std::string ReadShaderCode(const char * filePath);
 public:
-    explicit FrameRenderer(WGPUDevice*, WGPURenderPipeline*);
-    FrameRenderer(FrameRenderer&&) = delete;
-    FrameRenderer(FrameRenderer&) = delete;
+    explicit FrameRenderer(ContextResources&);
+    FrameRenderer() = default;
+    FrameRenderer(FrameRenderer&) = default;
     ~FrameRenderer();
 
-    void BuildBuffers();
-    void RenderFrame(WGPUCommandEncoder* encoder);
+    void Draw(const WGPURenderPassEncoder*);
 };
 
 

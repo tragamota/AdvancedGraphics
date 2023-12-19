@@ -5,10 +5,12 @@
 #ifndef ADVANCEDGRAPHICS_TRACEAPPLICATION_H
 #define ADVANCEDGRAPHICS_TRACEAPPLICATION_H
 
+#include "Interface.h"
 
 #include "core/Application.h"
 #include "rendering/RenderContext.h"
-#include "Interface.h"
+#include "rendering/FrameRenderer.h"
+
 
 class TraceApplication : public Application {
 public:
@@ -18,8 +20,12 @@ public:
 private:
     RenderContext m_Context;
     Interface m_Interface;
+    FrameRenderer m_FrameRenderer;
 
-    void OnFrameBufferResize(int width, int height);
+    bool m_ResizeRequested = false;
+
+    void Update();
+    void Render();
 };
 
 
