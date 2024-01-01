@@ -101,6 +101,8 @@ Window::Window(const WindowParameters& params) {
     glfwSetWindowAttrib(m_Window, GLFW_RESIZABLE, params.resizable);
     glfwSetWindowUserPointer(m_Window, this);
 
+    glfwGetFramebufferSize(m_Window, &m_FrameWidth, &m_FrameHeight);
+
     this->BindWindowCallbacks(m_Window);
 }
 

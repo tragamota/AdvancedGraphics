@@ -47,7 +47,6 @@ public:
     GLFWwindow* GetGLFWWindow();
     [[nodiscard]] WindowFrameSize GetWindowFrameBuffer() const;
 
-
     static inline void PollEvents() {
         glfwPollEvents();
     }
