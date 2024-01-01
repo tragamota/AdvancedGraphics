@@ -16,23 +16,23 @@ void TraceApplication::Init() {
 
     m_Context.Init(m_MainWindow);
     m_Interface.Init(m_MainWindow, contextResources);
-    m_FrameRenderer = FrameRenderer(contextResources);
+    m_FrameRenderer.Init(contextResources, m_MainWindow->GetWindowFrameBuffer());
 }
 
 void TraceApplication::OnTick(double elapsedTime) {
     Update();
     Render();
 
-    std::cout << "Tick happened with an elapsed time of : " << elapsedTime << std::endl;
+    // std::cout << "Tick happened with an elapsed time of : " << elapsedTime << std::endl;
 }
 
 void TraceApplication::Update() {
-    wgpuDeviceTick(*m_Context.GetContextResources().device);
-
     if(m_ResizeRequested) {
         m_Context.ResizeSwapChain(m_MainWindow->GetWindowFrameBuffer());
         m_ResizeRequested = false;
     }
+
+    wgpuDeviceTick(*m_Context.GetContextResources().device);
 }
 
 void TraceApplication::Render() {

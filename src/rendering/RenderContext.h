@@ -53,9 +53,7 @@ private:
     inline void InitWindowSurface(GLFWwindow*);
     inline void InitAdapter();
     inline void InitDevices();
-    inline void InitSwapChain(int, int);
-
-    std::string ReadShaderCode(const char*);
+    inline void InitSwapChain(WindowFrameSize);
 };
 
 #endif //ADVANCEDGRAPHICS_RENDERCONTEXT_H

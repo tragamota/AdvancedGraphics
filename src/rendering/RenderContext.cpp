@@ -12,14 +12,11 @@
 #include "../platform/GlfwSurfaceExtension.h"
 
 void RenderContext::Init(const std::shared_ptr<Window>& window) {
-    int width, height;
-    glfwGetFramebufferSize(window->GetGLFWWindow(), &width, &height);
-
     CreateInstance();
     InitWindowSurface(window->GetGLFWWindow());
     InitAdapter();
     InitDevices();
-    InitSwapChain(width, height);
+    InitSwapChain(window->GetWindowFrameBuffer());
 }
 
 void RenderContext::Destroy() {
@@ -129,12 +126,12 @@ void RenderContext::InitDevices() {
 }
 
 
-void RenderContext::InitSwapChain(int width, int height) {
+void RenderContext::InitSwapChain(WindowFrameSize frameSize) {
     WGPUSwapChainDescriptor swapChainDesc = {
         .usage = WGPUTextureUsage_RenderAttachment,
         .format = m_PreferredTextureFormat,
-        .width = static_cast<uint32_t>(width),
-        .height = static_cast<uint32_t>(height),
+        .width = static_cast<uint32_t>(frameSize.width),
+        .height = static_cast<uint32_t>(frameSize.height),
         .presentMode = WGPUPresentMode_Fifo
     };
 
@@ -194,7 +191,7 @@ const std::string& RenderContext::ErrorMessage() const {
 void RenderContext::ResizeSwapChain(WindowFrameSize frameSize) {
     wgpuSwapChainRelease(m_SwapChain);
 
-    InitSwapChain(frameSize.width, frameSize.height);
+    InitSwapChain(frameSize);
 }
 
 ContextResources RenderContext::GetContextResources() {
