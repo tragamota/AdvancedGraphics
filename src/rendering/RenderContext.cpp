@@ -166,14 +166,14 @@ const WGPURenderPassEncoder* RenderContext::GetRenderPass() {
     return &m_CurrentRenderPassEncoder;
 }
 
-void RenderContext::SubmitCommandBuffer(int commandCount) {
+void RenderContext::SubmitCommandBuffer() {
     WGPUCommandBufferDescriptor commandBufferDescriptor {};
-    WGPUCommandBuffer commandBuffer;
+    WGPUCommandBuffer commandBuffer {};
 
     wgpuRenderPassEncoderEnd(m_CurrentRenderPassEncoder);
-
     commandBuffer = wgpuCommandEncoderFinish(m_CurrentCommandEncoder, &commandBufferDescriptor);
-    wgpuQueueSubmit(m_Queue, commandCount, &commandBuffer);
+
+    wgpuQueueSubmit(m_Queue, 1, &commandBuffer);
 
     wgpuCommandBufferRelease(commandBuffer);
     wgpuCommandEncoderRelease(m_CurrentCommandEncoder);

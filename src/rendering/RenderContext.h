@@ -22,7 +22,7 @@ public:
     void Destroy();
 
     void ResizeSwapChain(WindowFrameSize);
-    void SubmitCommandBuffer(int);
+    void SubmitCommandBuffer();
     void Present();
 
     [[nodiscard]] const WGPURenderPassEncoder* GetRenderPass();

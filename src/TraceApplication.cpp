@@ -29,6 +29,7 @@ void TraceApplication::OnTick(double elapsedTime) {
 void TraceApplication::Update() {
     if(m_ResizeRequested) {
         m_Context.ResizeSwapChain(m_MainWindow->GetWindowFrameBuffer());
+        m_FrameRenderer.ResizeAccumulatorTexture(m_MainWindow->GetWindowFrameBuffer());
         m_ResizeRequested = false;
     }
 
@@ -46,7 +47,7 @@ void TraceApplication::Render() {
 
     m_Interface.Render(renderPass);
 
-    m_Context.SubmitCommandBuffer(1);
+    m_Context.SubmitCommandBuffer();
     m_Context.Present();
 }
 
