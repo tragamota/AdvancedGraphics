@@ -15,11 +15,11 @@ public:
         Reset();
     }
 
-    void Reset() {
+    inline void Reset() {
         m_Start = std::chrono::high_resolution_clock::now();
     }
 
-    float Elapsed() {
+    inline float Elapsed() {
         using std::chrono::steady_clock;
         using std::chrono::duration;
 
