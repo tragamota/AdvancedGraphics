@@ -21,7 +21,7 @@ public:
 protected:
     std::shared_ptr<Window> m_MainWindow;
 
-    virtual void OnTick(double elapsedTime) = 0;
+    virtual void OnTick(float elapsedTime) = 0;
 private:
     Timer m_Timer;
 };
