@@ -9,18 +9,20 @@
 #include "RenderContext.h"
 
 class FrameRenderer {
-    ContextResources m_ContextResources { };
+    ContextResources m_ContextResources;
+    WindowFrameSize m_Film;
 
     WGPURenderPipeline m_pipeline = nullptr;
 
     WGPUBuffer m_VertexBuffer = nullptr;
     WGPUBuffer m_IndexBuffer = nullptr;
 
+    WGPUBindGroupLayout m_bindGroupLayout = nullptr;
     WGPUBindGroup m_BindGroup = nullptr;
 
     WGPUTexture m_AccumulatorTexture = nullptr;
-    WGPUTextureView m_AccumulatorTextureView = nullptr;
     WGPUSampler m_AccumulatorSampler = nullptr;
+    WGPUTextureView m_AccumulatorTextureView = nullptr;
 
     void BuildPipeline();
     void BuildBuffers();
@@ -36,8 +38,8 @@ public:
     void Init(const ContextResources&, WindowFrameSize);
     void Draw(const WGPURenderPassEncoder*);
 
-    void ResizeAccumulatorTexture(const int, const int);
-    void CopyAccumulatorToTexture(uint8_t*);
+    void ResizeAccumulatorTexture(WindowFrameSize);
+    void CopyAccumulatorToTexture(uint32_t*);
 };
 
 

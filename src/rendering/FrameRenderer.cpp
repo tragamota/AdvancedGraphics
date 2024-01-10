@@ -19,9 +19,9 @@ constexpr const std::array<uint32_t, 6> FRAME_INDICES = {
     0, 1, 2, 0, 3, 2
 };
 
-
 void FrameRenderer::Init(const ContextResources& contextResources, const WindowFrameSize frameSize) {
     m_ContextResources = contextResources;
+    m_Film = frameSize;
 
     BuildAccumulatorTexture(frameSize.width, frameSize.height);
     BuildBuffers();
@@ -35,12 +35,16 @@ FrameRenderer::~FrameRenderer() {
     wgpuBufferDestroy(m_IndexBuffer);
     wgpuBufferRelease(m_IndexBuffer);
 
+    wgpuTextureViewRelease(m_AccumulatorTextureView);
+    wgpuSamplerRelease(m_AccumulatorSampler);
+
+    wgpuRenderPipelineRelease(m_pipeline);
+
     wgpuTextureDestroy(m_AccumulatorTexture);
     wgpuTextureRelease(m_AccumulatorTexture);
 
+    wgpuBindGroupLayoutRelease(m_bindGroupLayout);
     wgpuBindGroupRelease(m_BindGroup);
-    wgpuTextureViewRelease(m_AccumulatorTextureView);
-    wgpuSamplerRelease(m_AccumulatorSampler);
 }
 
 void FrameRenderer::BuildAccumulatorTexture(uint32_t screenWidth, uint32_t screenHeight) {
@@ -57,38 +61,6 @@ void FrameRenderer::BuildAccumulatorTexture(uint32_t screenWidth, uint32_t scree
     };
 
     m_AccumulatorTexture =  wgpuDeviceCreateTexture(*m_ContextResources.device, &textureDesc);
-
-    uint8_t* pixels = new uint8_t[4 * screenWidth * screenHeight];
-
-    for(int y = 0; y < screenHeight; y++) {
-        for(int x = 0; x < screenWidth; x++) {
-            uint8_t* texel = &pixels[4 * (y * screenWidth + x)];
-
-            texel[0] = (uint8_t)  (((float) x / (float) screenWidth)  * 255.f); // r
-            texel[1] = (uint8_t)  (((float) y / (float) screenHeight) * 255.f); // g
-            texel[2] = 255; // b
-            texel[3] = 255; // a
-        }
-    }
-
-    WGPUImageCopyTexture destination {
-        .nextInChain = nullptr,
-        .texture = m_AccumulatorTexture,
-        .mipLevel = 0,
-        .origin = {0,0,0},
-        .aspect = WGPUTextureAspect_All
-    };
-
-    WGPUTextureDataLayout source {
-        .nextInChain = nullptr,
-        .offset = 0,
-        .bytesPerRow = 4 * screenWidth,
-        .rowsPerImage = screenHeight,
-    };
-
-    wgpuQueueWriteTexture(*m_ContextResources.queue, &destination, pixels, 4 * screenWidth * screenHeight, &source,&textureDesc.size);
-
-    delete[] pixels;
 
     WGPUTextureViewDescriptor textureViewDescriptor {
         .format = WGPUTextureFormat_RGBA8Unorm,
@@ -186,7 +158,7 @@ void FrameRenderer::BuildPipeline() {
         .entries = bindingLayouts.data(),
     };
 
-    WGPUBindGroupLayout bindGroupLayout = wgpuDeviceCreateBindGroupLayout(*m_ContextResources.device, &bindLayoutDescriptor);
+    m_bindGroupLayout = wgpuDeviceCreateBindGroupLayout(*m_ContextResources.device, &bindLayoutDescriptor);
 
     bindGroups[0] = {
         .binding = 0,
@@ -200,13 +172,13 @@ void FrameRenderer::BuildPipeline() {
 
     WGPUPipelineLayoutDescriptor layoutDesc {
         .bindGroupLayoutCount = 1,
-        .bindGroupLayouts = &bindGroupLayout,
+        .bindGroupLayouts = &m_bindGroupLayout,
     };
 
     WGPUPipelineLayout pipelineLayout = wgpuDeviceCreatePipelineLayout(*m_ContextResources.device, &layoutDesc);
 
     WGPUBindGroupDescriptor bindGroupDescriptor {
-        .layout = bindGroupLayout,
+        .layout = m_bindGroupLayout,
         .entryCount = bindGroups.size(),
         .entries = bindGroups.data(),
     };
@@ -319,10 +291,41 @@ std::string FrameRenderer::ReadShaderCode(const char *filePath) {
     return buffer.str();
 }
 
-void FrameRenderer::ResizeAccumulatorTexture(const int, const int) {
+void FrameRenderer::ResizeAccumulatorTexture(WindowFrameSize frameSize) {
+    m_Film = frameSize;
 
+    wgpuTextureViewRelease(m_AccumulatorTextureView);
+    wgpuSamplerRelease(m_AccumulatorSampler);
+
+    wgpuRenderPipelineRelease(m_pipeline);
+
+    wgpuTextureDestroy(m_AccumulatorTexture);
+    wgpuTextureRelease(m_AccumulatorTexture);
+
+    wgpuBindGroupLayoutRelease(m_bindGroupLayout);
+    wgpuBindGroupRelease(m_BindGroup);
+
+    BuildAccumulatorTexture(frameSize.width, frameSize.height);
+    BuildPipeline();
 }
 
-void FrameRenderer::CopyAccumulatorToTexture(uint8_t *) {
+void FrameRenderer::CopyAccumulatorToTexture(uint32_t* textureBuffer) {
+    WGPUExtent3D textureSize = {(uint32_t) m_Film.width, (uint32_t) m_Film.height, 1};
 
+    WGPUImageCopyTexture destination {
+        .nextInChain = nullptr,
+        .texture = m_AccumulatorTexture,
+        .mipLevel = 0,
+        .origin = {0,0,0},
+        .aspect = WGPUTextureAspect_All
+    };
+
+    WGPUTextureDataLayout source {
+        .nextInChain = nullptr,
+        .offset = 0,
+        .bytesPerRow = static_cast<uint32_t>(4 * m_Film.width),
+        .rowsPerImage = static_cast<uint32_t>(m_Film.height),
+    };
+
+    wgpuQueueWriteTexture(*m_ContextResources.queue, &destination, textureBuffer, 4 * m_Film.width * m_Film.height, &source,&textureSize);
 }

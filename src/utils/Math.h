@@ -530,7 +530,7 @@ struct alignas(8) vec2f {
     };
 };
 
-struct alignas(16) vec3f {
+struct vec3f {
     vec3f() : x(0), y(0), z(0) {};
     vec3f(const float v) : x( v ), y( v ), z( v ) {};
     vec3f(const vec2f& xyz, const float d) : x(xyz.x), y(xyz.y), z(d){};
@@ -541,7 +541,7 @@ struct alignas(16) vec3f {
             float x, y, z;
         };
 
-        float xyz[3] {};
+        float xyz[3];
     };
 
     float& operator [] ( const int idx ) { return xyz[idx]; }
@@ -623,6 +623,7 @@ struct alignas(16) vec3f {
         this->x += v; this->y += v; this->z += v;
         return *this;
     };
+
     vec3f& operator += (const vec3f& v) {
         this->x += v.x; this->y += v.y; this->z += v.z;
         return *this;
@@ -784,7 +785,6 @@ struct alignas(16) vec4f {
     };
 };
 
-
 inline int dot(const vec2i& a, const vec2i& b) { return a.x * b.x + a.y * b.y; }
 inline int dot(const vec3i& a, const vec3i& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 inline int dot(const vec4i& a, const vec4i& b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;}
@@ -792,6 +792,8 @@ inline int dot(const vec4i& a, const vec4i& b) { return a.x * b.x + a.y * b.y + 
 inline float dot(const vec2f& a, const vec2f& b) { return a.x * b.x + a.y * b.y; }
 inline float dot(const vec3f& a, const vec3f& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 inline float dot(const vec4f& a, const vec4f& b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;}
+
+inline vec3f cross( const vec3f& a, const vec3f& b ) {return vec3f( a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x );}
 
 inline float length( const vec2i& v ) { return sqrtf( (float) dot( v, v ) ); }
 inline float length( const vec3i& v ) { return sqrtf( (float) dot( v, v ) ); }
@@ -804,9 +806,5 @@ inline float length(const vec4f& v) { return sqrtf(dot( v, v )); }
 inline vec2f normalize( const vec2f& v ) { float invLen = 1.0f / dot( v, v ); return v * invLen; }
 inline vec3f normalize( const vec3f& v ) { float invLen = 1.0f / dot( v, v ); return v * invLen; }
 inline vec4f normalize( const vec4f& v ) { float invLen = 1.0f / dot( v, v ); return v * invLen; }
-
-
-
-
 
 #endif //ADVANCEDGRAPHICS_MATH_H
