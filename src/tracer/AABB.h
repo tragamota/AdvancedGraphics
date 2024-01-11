@@ -7,13 +7,14 @@
 
 
 #include <complex>
+
 #include "../utils/Math.h"
 
 class AABB {
     union  {
         struct {
-            union { struct { vec3f m_Min; float d0; }; __m128 mMin; };
-            union { struct { vec3f m_Max; float d1; }; __m128 mMax; };
+            union { struct { vec3f m_Min; float d0; }; };
+            union { struct { vec3f m_Max; float d1; }; };
         };
     };
 
@@ -22,7 +23,7 @@ public:
     AABB(vec3f min, vec3f max);
 
     [[nodiscard]] vec3f Center() const;
-    [[nodiscard]] __m128 CenterSimd() const;
+    // [[nodiscard]] __m128 CenterSimd() const;
     [[nodiscard]] bool IsEmpty() const;
     [[nodiscard]] bool IsDegenerate() const;
     [[nodiscard]] float Volume() const;

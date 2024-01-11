@@ -84,14 +84,12 @@ add_executable(AdvancedGraphics ${IMGUI_SOURCES} ${GLFW_SURFACE_EXTENSION} ${TIN
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} webgpu_dawn webgpu_glfw)
-target_link_libraries(${PROJECT_NAME} ${OpenMP_CXX_FLAGS})
+target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
 
 target_compile_options(${PROJECT_NAME} PRIVATE "${OpenMP_CXX_FLAGS}")
 
 if (WIN32)
     target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/OpenCL/lib/OpenCL.lib)
-#    target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/hwy/lib/win32/hwy.lib)
-#    target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/hwy/lib/win32/hwy_contrib.lib)
 endif (WIN32)
 
 if (APPLE)

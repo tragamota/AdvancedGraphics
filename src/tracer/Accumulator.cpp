@@ -4,8 +4,6 @@
 
 #include "Accumulator.h"
 
-#include <omp.h>
-
 Accumulator::Accumulator(WindowFrameSize frameSize) : m_Film(frameSize) {
     ConstructAccumulator();
     Clear();

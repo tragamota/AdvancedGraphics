@@ -5,7 +5,7 @@
 #ifndef ADVANCEDGRAPHICS_MATH_H
 #define ADVANCEDGRAPHICS_MATH_H
 
-#include <cstdlib>
+#include <cmath>
 
 struct alignas(8) vec2i {
     vec2i() : x(0), y(0) {};

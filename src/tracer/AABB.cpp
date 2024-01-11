@@ -4,21 +4,19 @@
 
 #include "AABB.h"
 
-#include <xmmintrin.h>
-
 AABB::AABB(vec3f min, vec3f max) : m_Min(min), m_Max(max) {
-    mMin = _mm_set_ps(min.x, min.y, min.z, 0);
-    mMax = _mm_set_ps(max.x, max.y, max.z, 0 );
+//    mMin = _mm_set_ps(min.x, min.y, min.z, 0);
+//    mMax = _mm_set_ps(max.x, max.y, max.z, 0 );
 }
 
 vec3f AABB::Center() const {
     return (m_Min + m_Max) * 0.5f;
 }
 
-__m128 AABB::CenterSimd() const {
-    __m128 result;
-    return result;
-}
+//__m128 AABB::CenterSimd() const {
+//    __m128 result;
+//    return result;
+//}
 
 bool AABB::IsDegenerate() const {
     return false;
