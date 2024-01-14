@@ -10,13 +10,17 @@
 #include "../core/Window.h"
 
 class Camera {
+    vec3f Up = vec3f(0.0f, 1.0f, 0.0f);
+
     vec3f m_TopLeft;
     vec3f m_TopRight;
     vec3f m_BottomLeft;
 
-    float m_MoveSensitivity = 0.023;
-    float m_RotationSensitivity = 0.013;
+    float m_MoveSensitivity = 0.0023;
+    float m_RotationSensitivity = 0.0013;
     float m_AspectRatio;
+    float m_Fov = 40.f;
+
     WindowFrameSize m_Film;
 
     void UpdateSupportVectors();

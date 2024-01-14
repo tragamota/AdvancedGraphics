@@ -14,19 +14,19 @@ Accumulator::~Accumulator() {
 }
 
 uint32_t* Accumulator::GetImage(uint32_t totalFrames)  {
-    #pragma omp parallel for schedule(dynamic)
+//    #pragma omp parallel for schedule(dynamic)
     for(int y = 0; y < m_Film.height; y++) {
-        #pragma omp parallel for schedule(dynamic)
+//        #pragma omp parallel for schedule(dynamic)
         for(int x = 0; x < m_Film.width; x++) {
             auto texel = &m_TextureBuffer[y * m_Film.width + x];
             auto& accumulatorTexel = m_Accumulator[y * m_Film.width + x];
 
-            auto accumulatorTexelNormalized = accumulatorTexel / (float) (totalFrames + 1);
+            auto accumulatorTexelNormalized = accumulatorTexel;
 
-            auto r = (uint8_t) (accumulatorTexelNormalized.x * 255.0f);
-            auto g = (uint8_t) (accumulatorTexelNormalized.y * 255.0f);
-            auto b = (uint8_t) (accumulatorTexelNormalized.z * 255.0f);
-            auto a = (uint8_t) (accumulatorTexelNormalized.w * 255.0f);
+            auto r = std::min((uint8_t) 255, (uint8_t) (accumulatorTexelNormalized.x * 255.0f));
+            auto g = std::min((uint8_t) 255, (uint8_t) (accumulatorTexelNormalized.y * 255.0f));
+            auto b = std::min((uint8_t) 255, (uint8_t) (accumulatorTexelNormalized.z * 255.0f));
+            auto a = std::min((uint8_t) 255, (uint8_t) (accumulatorTexelNormalized.w * 255.0f));
 
             *texel = (a << 24) | (b << 16) | (g << 8) | r;
         }

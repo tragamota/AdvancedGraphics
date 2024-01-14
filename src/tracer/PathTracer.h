@@ -23,16 +23,17 @@ class PathTracer {
 
     void GeneratePrimaryRays();
 public:
-    explicit PathTracer(const char* skyboxPath, const WindowFrameSize frameSize);
+    explicit PathTracer(const char* skyboxPath, WindowFrameSize frameSize);
+    ~PathTracer();
 
     uint32_t frameIndex = 0;
 
     void RenderFrame();
+    void Resize(WindowFrameSize);
 
     [[nodiscard]] Accumulator* GetAccumulator();
     [[nodiscard]] Camera* GetCamera();
     [[nodiscard]] Scene* GetScene();
-
 };
 
 

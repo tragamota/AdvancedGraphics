@@ -24,10 +24,10 @@ public:
     explicit Texture(const char* filePath);
     ~Texture();
 
-    const int GetWidth() const;
-    const int GetHeight() const;
+    int GetWidth() const;
+    int GetHeight() const;
 
-    vec4f Sample(const float u, const float v) const;
+    vec4f Sample(const uint32_t u, const uint32_t v) const;
 };
 
 

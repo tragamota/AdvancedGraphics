@@ -80,7 +80,9 @@ add_executable(AdvancedGraphics ${IMGUI_SOURCES} ${GLFW_SURFACE_EXTENSION} ${TIN
         src/tracer/Texture.cpp
         src/tracer/Texture.h
         src/tracer/Triangle.cpp
-        src/tracer/Triangle.h)
+        src/tracer/Triangle.h
+        src/tracer/BonsaiBVH.cpp
+        src/tracer/BonsaiBVH.h)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} webgpu_dawn webgpu_glfw)

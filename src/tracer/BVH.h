@@ -71,7 +71,6 @@ struct BVHAABB {
         vec3f extent = maxBounds - minBounds; // box extent
         return extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
     }
-
 };
 
 struct BVHNode {

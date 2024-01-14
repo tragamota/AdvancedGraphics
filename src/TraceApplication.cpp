@@ -28,9 +28,9 @@ void TraceApplication::Init() {
 
     m_Context.Init(m_MainWindow);
     m_Interface.Init(m_MainWindow, contextResources);
-    m_FrameRenderer.Init(contextResources, m_MainWindow->GetWindowFrameBuffer());
+    m_FrameRenderer.Init(contextResources, windowFrameSize);
 
-    m_PathTracer = new PathTracer("", windowFrameSize);
+    m_PathTracer = new PathTracer("assets/sky_19.hdr", windowFrameSize);
 
     m_Camera = m_PathTracer->GetCamera();
     m_Accumulator = m_PathTracer->GetAccumulator();
@@ -47,7 +47,7 @@ void TraceApplication::Update(float elapsedTime) {
 
         m_Context.ResizeSwapChain(windowFrame);
         m_FrameRenderer.ResizeAccumulatorTexture(windowFrame);
-        m_Accumulator->Resize(windowFrame);
+        m_PathTracer->Resize(windowFrame);
         m_ResizeRequested = false;
     }
 
@@ -76,8 +76,16 @@ void TraceApplication::Update(float elapsedTime) {
         m_Camera->MoveRight(elapsedTime);
     }
 
+    if(keyState[GLFW_KEY_LEFT_SHIFT] == GLFW_PRESS) {
+        m_Camera->MoveUp(elapsedTime);
+    }
+
+    if(keyState[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS) {
+        m_Camera->MoveDown(elapsedTime);
+    }
+
     if(controlStates.enableMouse) {
-        m_Camera->ChangeOrientation(0, 0);
+        m_Camera->ChangeOrientation(1, 1);
         std::cout << m_Camera->m_Target.x << ", " << m_Camera->m_Target.y << ", " << m_Camera->m_Target.z  << std::endl;
     }
 
@@ -89,6 +97,8 @@ void TraceApplication::Update(float elapsedTime) {
 void TraceApplication::Render() {
     auto renderPass = m_Context.GetRenderPass();
 
+    m_PathTracer->RenderFrame();
+
     m_Interface.BeginFrame();
     m_Interface.DrawUI();
     m_Interface.EndFrame();
@@ -99,15 +109,13 @@ void TraceApplication::Render() {
 
     m_Context.SubmitCommandBuffer();
     m_Context.Present();
-
-    m_PathTracer->RenderFrame();
 }
 
 void TraceApplication::ShutDown() {
     m_Interface.Destroy();
     m_Context.Destroy();
 
-    delete m_Accumulator;
+    delete m_PathTracer;
 
     Application::ShutDown();
 }

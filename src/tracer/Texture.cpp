@@ -15,23 +15,27 @@ Texture::~Texture() {
     free(data);
 }
 
-vec4f Texture::Sample(const float u, const float v) const {
-    uint8_t skyIdx = u + v * width;
+vec4f Texture::Sample(const uint32_t u, const uint32_t v) const {
+    uint32_t skyIdx = (u + v * width) % (width * height);
 
-    return vec4f(data[skyIdx * 4], data[skyIdx * 4 + 1], data[skyIdx * 4 + 2], data[skyIdx * 4 + 3]);
+    if(skyIdx > width * height) {
+        int a = 0;
+    }
+
+    return vec4f(data[skyIdx * 3], data[skyIdx * 3 + 1], data[skyIdx * 3 + 2], 1.0f) * 0.65f;
 }
 
 void Texture::LoadImage(const char *filePath) {
     int channels = 0;
 
-    data = stbi_loadf(filePath, &width, &height, &channels, 4);
+    data = stbi_loadf(filePath, &width, &height, &channels, 3);
 }
 
-const int Texture::GetWidth() const {
+int Texture::GetWidth() const {
     return width;
 }
 
-const int Texture::GetHeight() const {
+int Texture::GetHeight() const {
     return height;
 }
 

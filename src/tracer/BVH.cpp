@@ -4,8 +4,6 @@
 
 #include "BVH.h"
 
-
-
 BVH::BVH(std::vector<Triangle *> triangles) : m_Triangles(triangles.data()) {
     m_TriangleCount = triangles.size();
 
@@ -86,38 +84,30 @@ void BVH::UpdateBounds(BVHNode* node) {
 }
 
 SplitPlaneInfo BVH::BestSplitPlane(BVHNode *node) {
-    uint32_t bestAxis = 0;
-    float bestPos = 0;
-    float bestCost = std::numeric_limits<float>::max();
+    int bestAxis = -1;
+    float bestPos = 0, bestCost = std::numeric_limits<float>::max();
 
-    vec3f extent = node->bounds.minBounds - node->bounds.maxBounds;
+    for(int axis = 0; axis < 3; axis++) {
+        for (uint32_t i = 0; i < node->count; i++) {
+            Triangle* triangle = m_Triangles[m_TriangleIndices[node->left + i]];
 
-    if(extent.y > extent.x) {
-        bestAxis = 1;
-    }
-    if(extent.z > extent[bestAxis]) {
-        bestAxis = 2;
-    }
+            if (node->bounds.minBounds[axis] == node->bounds.maxBounds[axis])
+                continue;
 
-    float minBounds = node->bounds.minBounds[bestAxis];
-    float maxBounds = node->bounds.maxBounds[bestAxis];
+            float scale = (node->bounds.maxBounds[axis] - node->bounds.minBounds[axis]) / 6;
 
-    if (minBounds == maxBounds)
-        return {
-            .axis = bestAxis,
-            .cost = bestCost,
-            .position = 0
-        };
+            for (uint32_t j = 1; j < 6; j++)
+            {
+                float candidatePos = node->bounds.minBounds[axis] + j * scale;
+                float cost = EvaluateSAH( node, axis, candidatePos );
 
-    float scale = (maxBounds - minBounds) / 16;
-
-    for (uint32_t i = 1; i < 16; i++) {
-        float candidatePos = minBounds + i * scale;
-        float cost = EvaluateSAH(node, bestAxis, candidatePos);
-
-        if (cost < bestCost) {
-            bestPos = candidatePos,
-            bestCost = cost;
+                if (cost < bestCost)
+                    if (cost < bestCost) {
+                        bestPos = candidatePos,
+                        bestAxis = axis,
+                        bestCost = cost;
+                    }
+            }
         }
     }
 
@@ -156,7 +146,7 @@ float BVH::EvaluateSAH(BVHNode* node, int axis, float pos) {
 }
 
 
-void BVH::Traverse(Ray& ray, RayTraceInfo& traceInfo) {
+void BVH::Traverse(Ray& ray, RayTraceInfo& rayTraceInfo) {
     BVHNode* node = &m_BVHNodes[0], *stack[64];
     uint32_t stackPtr = 0;
     while (true)
@@ -176,8 +166,8 @@ void BVH::Traverse(Ray& ray, RayTraceInfo& traceInfo) {
 
         BVHNode* leftChild = &m_BVHNodes[node->left];
         BVHNode* rightChild = &m_BVHNodes[node->left + 1];
-        float dist1 = IntersectNode(ray, traceInfo, leftChild->bounds);
-        float dist2 = IntersectNode(ray, traceInfo, rightChild->bounds);
+        float dist1 = IntersectNode(ray, rayTraceInfo, leftChild->bounds);
+        float dist2 = IntersectNode(ray, rayTraceInfo, rightChild->bounds);
 
         if (dist1 > dist2) {
             std::swap( dist1, dist2 );
@@ -203,7 +193,6 @@ void BVH::Traverse(Ray& ray, RayTraceInfo& traceInfo) {
 
 float BVH::IntersectNode(Ray &ray, RayTraceInfo& traceInfo, BVHAABB &bounds) const {
     auto& rayOrigin = ray.GetOrigin();
-    auto& rayDirection = ray.GetDirection();
     auto& rayInverse = traceInfo.InverseDirection;
 
     float tx1 = (bounds.minBounds.x - rayOrigin.x) / rayInverse.x;
@@ -216,7 +205,7 @@ float BVH::IntersectNode(Ray &ray, RayTraceInfo& traceInfo, BVHAABB &bounds) con
     float ty2 = (bounds.minBounds.y - rayOrigin.y) / rayInverse.y;
 
     tmin = std::max( tmin, std::min( ty1, ty2 ) ),
-    tmax = std::min( tmax, std::max( ty1, ty2 ) );
+            tmax = std::min( tmax, std::max( ty1, ty2 ) );
 
     float tz1 = (bounds.minBounds.z - rayOrigin.z) / rayInverse.z;
     float tz2 = (bounds.maxBounds.z - rayOrigin.z) / rayInverse.z;
