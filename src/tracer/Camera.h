@@ -10,24 +10,28 @@
 #include "../core/Window.h"
 
 class Camera {
-    vec3f Up = vec3f(0.0f, 1.0f, 0.0f);
+    vec3f m_Position;
+    vec3f m_Target;
 
-    vec3f m_TopLeft;
-    vec3f m_TopRight;
-    vec3f m_BottomLeft;
+    vec3f m_Up = vec3f(0.0f, 1.0f, 0.0f);
+    vec3f m_Left;
+    vec3f m_Top;
 
     float m_MoveSensitivity = 0.0023;
-    float m_RotationSensitivity = 0.0013;
-    float m_AspectRatio;
-    float m_Fov = 40.f;
+    float m_RotationSensitivity = 0.013;
+
+    float m_Fov = 85.f;
+    float m_Distance = 1.0f;
+    float m_AspectRatio = 1.0f;
+
+    float m_Yaw = 0.00f;
+    float m_Pitch = 0.00f;
 
     WindowFrameSize m_Film;
 
     void UpdateSupportVectors();
+    [[nodiscard]] vec3f CalculateViewDirection() const;
 public:
-    vec3f m_Position;
-    vec3f m_Target;
-
     Camera() = default;
     Camera(WindowFrameSize);
     Camera(WindowFrameSize, vec3f, vec3f);
@@ -41,9 +45,9 @@ public:
     void MoveUp(float deltaTime);
     void MoveDown(float deltaTime);
 
-    void ChangeOrientation(float, float);
+    void ChangeOrientation(float, float, float);
 
-    Ray GetPrimaryRay(int width, int height);
+    Ray GetPrimaryRay(float width, float height);
 };
 
 

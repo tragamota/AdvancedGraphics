@@ -14,9 +14,9 @@ Accumulator::~Accumulator() {
 }
 
 uint32_t* Accumulator::GetImage(uint32_t totalFrames)  {
-//    #pragma omp parallel for schedule(dynamic)
+    #pragma omp parallel for schedule(dynamic)
     for(int y = 0; y < m_Film.height; y++) {
-//        #pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for schedule(dynamic)
         for(int x = 0; x < m_Film.width; x++) {
             auto texel = &m_TextureBuffer[y * m_Film.width + x];
             auto& accumulatorTexel = m_Accumulator[y * m_Film.width + x];
@@ -57,6 +57,6 @@ inline void Accumulator::RemoveAccumulator() {
 }
 
 void Accumulator::Clear() {
-    memset(m_TextureBuffer, 0, sizeof(uint32_t) * m_Film.width * m_Film.height);
+    memset(m_TextureBuffer, 0,  m_Film.width * m_Film.height * sizeof(uint32_t));
     memset(m_Accumulator, 0, m_Film.width * m_Film.height * sizeof(vec4f));
 }

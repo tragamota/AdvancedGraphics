@@ -15,19 +15,13 @@ Texture::~Texture() {
     free(data);
 }
 
-vec4f Texture::Sample(const uint32_t u, const uint32_t v) const {
+vec4f Texture::Sample(const uint32_t &u, const uint32_t &v) const {
     uint32_t skyIdx = (u + v * width) % (width * height);
 
-    if(skyIdx > width * height) {
-        int a = 0;
-    }
-
-    return vec4f(data[skyIdx * 3], data[skyIdx * 3 + 1], data[skyIdx * 3 + 2], 1.0f) * 0.65f;
+    return vec4f(data[skyIdx * channels], data[skyIdx * channels + 1], data[skyIdx * channels + 2], 1.0f);
 }
 
 void Texture::LoadImage(const char *filePath) {
-    int channels = 0;
-
     data = stbi_loadf(filePath, &width, &height, &channels, 3);
 }
 
@@ -37,5 +31,11 @@ int Texture::GetWidth() const {
 
 int Texture::GetHeight() const {
     return height;
+}
+
+void Texture::ClampToneMap(float clampValue) {
+    for (int i = 0; i < width * height * 3; ++i) {
+        data[i] = std::min(data[i], clampValue);
+    }
 }
 

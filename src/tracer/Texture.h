@@ -18,6 +18,7 @@ enum TextureFormat {
 class Texture {
     float* data;
     int width, height;
+    int channels;
 
     void LoadImage(const char* filePath);
 public:
@@ -27,7 +28,9 @@ public:
     int GetWidth() const;
     int GetHeight() const;
 
-    vec4f Sample(const uint32_t u, const uint32_t v) const;
+    void ClampToneMap(float clampValue = 1.0f);
+
+    [[nodiscard]] vec4f Sample(const uint32_t& u, const uint32_t& v) const;
 };
 
 

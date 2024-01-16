@@ -15,9 +15,6 @@ Camera::Camera(WindowFrameSize frameSize) : m_Film(frameSize), m_Position(0, 0, 
 
 Camera::Camera(WindowFrameSize frameSize, vec3f position, vec3f target) : m_Film(frameSize), m_Position(position) {
     ChangeAspectRation(frameSize);
-
-    m_Target = normalize(target - m_Position);
-
     UpdateSupportVectors();
 }
 
@@ -28,87 +25,78 @@ void Camera::ChangeAspectRation(WindowFrameSize& frameSize) {
     UpdateSupportVectors();
 }
 
-Ray Camera::GetPrimaryRay(int x, int y) {
-    float u = (static_cast<float>(x)) / static_cast<float>(m_Film.width);
-    float v = (static_cast<float>(y)) / static_cast<float>(m_Film.height);
+Ray Camera::GetPrimaryRay(float x, float y) {
+    const float PixelX = x * (1.0f / (float) m_Film.width);
+    const float PixelY = y * (1.0f / (float) m_Film.height);
 
-    vec3f pixelPosition = m_TopLeft + (m_TopRight - m_TopLeft) * u + (m_BottomLeft - m_TopLeft) * v;
-    vec3f rayDirection = normalize(pixelPosition - m_Position);
+    const float ScreenX = 2.f * PixelX - 1.f;
+    const float ScreenY = 1.f - 2.f * PixelY;
 
-    return {m_Position, rayDirection};
+    vec3f pixelPosition = m_Target + m_Left * ScreenX + m_Top * ScreenY;
+
+    return {m_Position, normalize(pixelPosition)};
 }
 
 void Camera::UpdateSupportVectors() {
+    m_Distance = tanf((m_Fov * 0.5f) * (M_PI / 180.0f));
+    m_Target = CalculateViewDirection();
+
     vec3f Ahead = m_Target;
-    vec3f UpGuide = vec3f(0.0f, 1.0f, 0.0f);
-    vec3f Right = normalize(cross(UpGuide, Ahead));
-    UpGuide = normalize(cross(Ahead, Right));
+    vec3f Right = normalize(cross(Ahead, m_Up));
+    vec3f Up = normalize(cross(Right, Ahead));
 
-    float viewPlaneDistance = 1.0f;
-    float fovRads = m_Fov * (M_PI / 180.f);
-    vec3f viewPlaneCenter = m_Position + m_Target * viewPlaneDistance;
-
-    float viewPlaneHeight = 2.0f * tan(fovRads * 0.5f); // Vertical field of view
-    float viewPlaneWidth = viewPlaneHeight * m_AspectRatio; // Aspect ratio = width / height
-
-    float halfWidth = viewPlaneWidth * 0.5f;
-    float halfHeight = viewPlaneHeight * 0.5f;
-
-    m_TopLeft = viewPlaneCenter + UpGuide * halfHeight - Right * halfWidth;
-    m_TopRight = viewPlaneCenter + UpGuide * halfHeight + Right * halfWidth;
-    m_BottomLeft = viewPlaneCenter - UpGuide * halfHeight - Right * halfWidth;
+    m_Left = Right * m_Distance * m_AspectRatio;
+    m_Top = Up * m_Distance;
 }
 
 void Camera::MoveForward(float deltaTime) {
     m_Position -= m_Target * m_MoveSensitivity * deltaTime;
-
     UpdateSupportVectors();
 }
 
 void Camera::MoveBackward(float deltaTime) {
     m_Position += m_Target * m_MoveSensitivity * deltaTime;
-
     UpdateSupportVectors();
 }
 
 void Camera::MoveUp(float deltaTime) {
-    m_Position += Up * m_MoveSensitivity * deltaTime;
+    m_Position += m_Up * m_MoveSensitivity * deltaTime;
 
     UpdateSupportVectors();
 }
 
 void Camera::MoveDown(float deltaTime) {
-    m_Position -= Up * m_MoveSensitivity * deltaTime;
+    m_Position -= m_Up * m_MoveSensitivity * deltaTime;
 
     UpdateSupportVectors();
 }
 
 void Camera::MoveRight(float deltaTime) {
-    const vec3f Right = cross(m_Target, Up);
-    m_Position -= normalize(Right) * m_MoveSensitivity * deltaTime;
+    const vec3f Right = normalize(cross(m_Target, m_Up));
+    m_Position += Right * m_MoveSensitivity * deltaTime;
 
     UpdateSupportVectors();
 }
 
 void Camera::MoveLeft(float deltaTime) {
-    const vec3f Right = cross(m_Target, Up);
-    m_Position += normalize(Right) * m_MoveSensitivity * deltaTime;
+    const vec3f Right = normalize(cross(m_Target, m_Up));
+    m_Position -= Right * m_MoveSensitivity * deltaTime;
 
     UpdateSupportVectors();
 }
 
-void Camera::ChangeOrientation(float xOffset, float yOffset) {
+void Camera::ChangeOrientation(float xOffset, float yOffset, float elapsedTime) {
     xOffset *= m_RotationSensitivity;
     yOffset *= m_RotationSensitivity;
 
-    vec3f view = m_Target;
-    vec3f right = normalize(cross(view, vec3f(0, 1, 0)));
-    vec3f up = cross(right, view);
-
-    m_Target += up * yOffset;
-    m_Target += right * xOffset;
+    m_Pitch += yOffset * elapsedTime;
+    m_Yaw += xOffset * elapsedTime;
 
     UpdateSupportVectors();
+}
+
+vec3f Camera::CalculateViewDirection() const {
+    return {sinf(m_Yaw) * cosf(m_Pitch), sinf(m_Pitch), -1.0f * cosf(m_Yaw) * cosf(m_Pitch)};
 }
 
 
