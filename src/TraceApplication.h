@@ -17,6 +17,12 @@
 struct ControlStates {
     bool enableMouse;
     bool hasToggledEnableMouse;
+
+    vec2f lastMousePosition;
+    vec2f currentMousePosition;
+    uint8_t keyState[GLFW_KEY_LAST];
+
+    bool m_ResizeRequested = false;
 };
 
 class TraceApplication : public Application {
@@ -34,11 +40,6 @@ private:
     PathTracer* m_PathTracer;
     Accumulator* m_Accumulator;
     Camera* m_Camera;
-
-    vec2f mousePosition;
-    uint8_t keyState[GLFW_KEY_LAST];
-
-    bool m_ResizeRequested = false;
 
     void Update(float);
     void Render();

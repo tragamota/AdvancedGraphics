@@ -9,18 +9,20 @@ void TraceApplication::Init() {
     Application::Init();
 
     m_MainWindow->OnFramebufferResize = [this](int width, int height) {
-        m_ResizeRequested = true;
+        controlStates.m_ResizeRequested = true;
     };
 
     m_MainWindow->OnMouseMovement = [this](double x, double y) {
-
+        controlStates.currentMousePosition = vec2f((float) x,(float) y);
     };
+
+//    m_MainWindow->OnMousePress = [this](int key, int )
 
     m_MainWindow->OnKeyInput = [this](int key, int scanCode, int action, int mods) {
         if(action == GLFW_REPEAT)
             action = GLFW_PRESS;
 
-        keyState[key] = action;
+        controlStates.keyState[key] = action;
     };
 
     auto contextResources = m_Context.GetContextResources();
@@ -30,7 +32,7 @@ void TraceApplication::Init() {
     m_Interface.Init(m_MainWindow, contextResources);
     m_FrameRenderer.Init(contextResources, windowFrameSize);
 
-    m_PathTracer = new PathTracer("assets/sky_19.hdr", windowFrameSize);
+    m_PathTracer = new PathTracer("assets/skydome_night.hdr", windowFrameSize);
 
     m_Camera = m_PathTracer->GetCamera();
     m_Accumulator = m_PathTracer->GetAccumulator();
@@ -42,52 +44,57 @@ void TraceApplication::OnTick(float elapsedTime) {
 }
 
 void TraceApplication::Update(float elapsedTime) {
-    if(m_ResizeRequested) {
+    if(controlStates.m_ResizeRequested) {
         auto windowFrame = m_MainWindow->GetWindowFrameBuffer();
 
         m_Context.ResizeSwapChain(windowFrame);
         m_FrameRenderer.ResizeAccumulatorTexture(windowFrame);
         m_PathTracer->Resize(windowFrame);
-        m_ResizeRequested = false;
+        controlStates.m_ResizeRequested = false;
     }
 
-    if(keyState[GLFW_KEY_F1] == GLFW_PRESS && !controlStates.hasToggledEnableMouse) {
+    if(controlStates.keyState[GLFW_KEY_F1] == GLFW_PRESS && !controlStates.hasToggledEnableMouse) {
         controlStates.enableMouse = !controlStates.enableMouse;
         controlStates.hasToggledEnableMouse = true;
     }
 
-    if(keyState[GLFW_KEY_F1] == GLFW_RELEASE && controlStates.hasToggledEnableMouse) {
+    if(controlStates.keyState[GLFW_KEY_F1] == GLFW_RELEASE && controlStates.hasToggledEnableMouse) {
         controlStates.hasToggledEnableMouse = false;
     }
 
-    if(keyState[GLFW_KEY_W] == GLFW_PRESS ) {
+    if(controlStates.keyState[GLFW_KEY_W] == GLFW_PRESS ) {
         m_Camera->MoveForward(elapsedTime);
     }
 
-    if(keyState[GLFW_KEY_A] == GLFW_PRESS) {
+    if(controlStates.keyState[GLFW_KEY_A] == GLFW_PRESS) {
         m_Camera->MoveLeft(elapsedTime);
     }
 
-    if(keyState[GLFW_KEY_S] == GLFW_PRESS) {
+    if(controlStates.keyState[GLFW_KEY_S] == GLFW_PRESS) {
         m_Camera->MoveBackward(elapsedTime);
     }
 
-    if(keyState[GLFW_KEY_D] == GLFW_PRESS) {
+    if(controlStates.keyState[GLFW_KEY_D] == GLFW_PRESS) {
         m_Camera->MoveRight(elapsedTime);
     }
 
-    if(keyState[GLFW_KEY_LEFT_SHIFT] == GLFW_PRESS) {
+    if(controlStates.keyState[GLFW_KEY_LEFT_SHIFT] == GLFW_PRESS) {
         m_Camera->MoveUp(elapsedTime);
     }
 
-    if(keyState[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS) {
+    if(controlStates.keyState[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS) {
         m_Camera->MoveDown(elapsedTime);
     }
 
     if(controlStates.enableMouse) {
-        m_Camera->ChangeOrientation(1, 1);
-        std::cout << m_Camera->m_Target.x << ", " << m_Camera->m_Target.y << ", " << m_Camera->m_Target.z  << std::endl;
+        vec2f relativeMouseMovement = controlStates.currentMousePosition - controlStates.lastMousePosition;
+
+        if(relativeMouseMovement.x != 0 || relativeMouseMovement.y != 0) {
+            m_Camera->ChangeOrientation(relativeMouseMovement.x, relativeMouseMovement.y, elapsedTime);
+        }
     }
+
+    controlStates.lastMousePosition = controlStates.currentMousePosition;
 
     m_FrameRenderer.CopyAccumulatorToTexture(m_Accumulator->GetImage(0));
 
