@@ -20,6 +20,7 @@ struct ControlStates {
 
     vec2f lastMousePosition;
     vec2f currentMousePosition;
+    bool leftMouseButtonPressed;
     uint8_t keyState[GLFW_KEY_LAST];
 
     bool m_ResizeRequested = false;

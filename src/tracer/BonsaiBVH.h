@@ -7,27 +7,26 @@
 
 
 #include <vector>
-#include "Triangle.h"
 
-struct alignas(64) MiniTreeSelection {
-    vec3f minBounds, maxBounds;
-    uint32_t left, count;
-};
+#include "Triangle.h"
+#include "BonsaiMiniTreeSelector.h"
+#include "Ray.h"
 
 class BonsaiBVH {
-    std::vector<Triangle> m_Triangles;
-
+    Triangle* m_Triangles;
     uint32_t m_TriangleCount;
-    uint32_t* m_MiniTreeSelectionIndices;
+
+    BonsaiMiniTreeSelector* m_TreeSelector;
+
+    void CalculateTriangleCentroids();
+    void MiniTreeSelection();
+    void BuildMiniTrees();
+    void ConstructTopLevel();
 public:
-    BonsaiBVH(std::vector<Triangle> triangles);
+    explicit BonsaiBVH(std::vector<Triangle>& triangles);
 
     void BuildBvh();
-    void CalculateTriangleCentroids();
-
-    void UpdateMiniSelectionBounds(MiniTreeSelection& treeSelection);
-    std::vector<MiniTreeSelection> GroupMiniTrees();
-
+    void Traverse(Ray& ray, RayTraceInfo& info);
 };
 
 

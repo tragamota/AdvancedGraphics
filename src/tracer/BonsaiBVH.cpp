@@ -4,41 +4,42 @@
 
 #include "BonsaiBVH.h"
 
-BonsaiBVH::BonsaiBVH(std::vector<Triangle> triangles) {
-    m_Triangles = triangles;
+BonsaiBVH::BonsaiBVH(std::vector<Triangle>& triangles) {
+    m_Triangles = triangles.data();
     m_TriangleCount = triangles.size();
 }
 
 void BonsaiBVH::BuildBvh() {
     CalculateTriangleCentroids();
 
+    MiniTreeSelection();
+    BuildMiniTrees();
 }
 
 void BonsaiBVH::CalculateTriangleCentroids() {
-    m_MiniTreeSelectionIndices = new uint32_t[m_TriangleCount];
-
     #pragma omp parallel for schedule(static)
     for(int i = 0; i < m_TriangleCount; i++) {
         auto& triangle = m_Triangles[i];
 
-        m_MiniTreeSelectionIndices[i] = i;
         triangle.CalculateCentroid();
     }
 }
 
-std::vector<MiniTreeSelection> BonsaiBVH::GroupMiniTrees() {
-    return std::vector<MiniTreeSelection>();
+void BonsaiBVH::Traverse(Ray &ray, RayTraceInfo &info) {
+
 }
 
-void BonsaiBVH::UpdateMiniSelectionBounds(MiniTreeSelection& treeSelection) {
-//    for (uint32_t first = treeSelection.left, i = 0; i < treeSelection.count; i++) {
-//        treeSelection.bounds.UpdateBounds(m_Triangles[first]);
-//    }
+void BonsaiBVH::MiniTreeSelection() {
+    m_TreeSelector->SelectMiniTrees();
 }
-//
-//void BVH::UpdateBounds(BVHNode* node) {
-//
-//    for (uint32_t first = node->left, i = 0; i < node->count; i++) {
-//        node->bounds.UpdateBounds(m_Triangles[first]);
-//    }
-//}
+
+void BonsaiBVH::BuildMiniTrees() {
+    #pragma omp parallel for schedule(static)
+    for(auto& tree : m_TreeSelector->GetMiniTrees()) {
+
+    }
+}
+
+void BonsaiBVH::ConstructTopLevel() {
+
+}

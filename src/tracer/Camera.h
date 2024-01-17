@@ -17,10 +17,10 @@ class Camera {
     vec3f m_Left;
     vec3f m_Top;
 
-    float m_MoveSensitivity = 0.0023;
-    float m_RotationSensitivity = 0.013;
+    float m_MoveSensitivity = 0.023;
+    float m_RotationSensitivity = 0.083;
 
-    float m_Fov = 85.f;
+    float m_Fov = 75.f;
     float m_Distance = 1.0f;
     float m_AspectRatio = 1.0f;
 
@@ -36,7 +36,7 @@ public:
     Camera(WindowFrameSize);
     Camera(WindowFrameSize, vec3f, vec3f);
 
-    void ChangeAspectRation(WindowFrameSize&);
+    const float GetFieldOfView() const;
 
     void MoveForward(float deltaTime);
     void MoveRight(float deltaTime);
@@ -46,6 +46,8 @@ public:
     void MoveDown(float deltaTime);
 
     void ChangeOrientation(float, float, float);
+    void ChangeAspectRation(WindowFrameSize&);
+    void ChangeFov(float fov);
 
     Ray GetPrimaryRay(float width, float height);
 };

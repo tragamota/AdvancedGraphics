@@ -78,7 +78,7 @@ void BVH::BuildVolumes(uint32_t nodeIdx) {
 
 void BVH::UpdateBounds(BVHNode* node) {
 
-    for (uint32_t first = node->left, i = 0; i < node->count; i++) {
+    for (uint32_t first = node->left; first < node->count; first++) {
         node->bounds.UpdateBounds(m_Triangles[first]);
     }
 }

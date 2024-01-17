@@ -18,5 +18,10 @@ public:
     void CalculateCentroid();
 };
 
+class alignas(64) TriangleExt {
+    vec2f UvOne, UVTwo, UVThree;
+    vec3f NormalOne, NormalTwo, NormalThree;
+};
+
 
 #endif //ADVANCEDGRAPHICS_TRIANGLE_H

@@ -9,9 +9,20 @@
 
 PathTracer::PathTracer(const char *skyboxPath, const WindowFrameSize frameSize) : m_Film(frameSize) {
     skyBoxTexture = new Texture(skyboxPath);
+    skyBoxTexture->ClampToneMap();
 
     m_Camera = Camera(frameSize, vec3f(0, 0, 1), vec3f(0, 0,  0));
     m_Accumulator = new Accumulator(frameSize);
+}
+
+PathTracer::~PathTracer() {
+    delete skyBoxTexture;
+    delete m_Accumulator;
+}
+
+void PathTracer::Resize(WindowFrameSize windowFrameSize) {
+    m_Film = windowFrameSize;
+    m_Accumulator->Resize(windowFrameSize);
 }
 
 Scene* PathTracer::GetScene() {
@@ -29,10 +40,6 @@ Accumulator *PathTracer::GetAccumulator() {
 void PathTracer::RenderFrame() {
     frameIndex = 0;
 
-    GeneratePrimaryRays();
-}
-
-void PathTracer::GeneratePrimaryRays() {
     #pragma omp parallel for schedule(dynamic)
     for(int y = 0; y < m_Film.height; y++) {
         #pragma omp parallel for schedule(dynamic)
@@ -51,12 +58,7 @@ void PathTracer::GeneratePrimaryRays() {
     }
 }
 
-PathTracer::~PathTracer() {
-    delete skyBoxTexture;
-    delete m_Accumulator;
+void PathTracer::GeneratePrimaryRays() {
+
 }
 
-void PathTracer::Resize(WindowFrameSize windowFrameSize) {
-    m_Film = windowFrameSize;
-    m_Accumulator->Resize(windowFrameSize);
-}

@@ -99,4 +99,21 @@ vec3f Camera::CalculateViewDirection() const {
     return {sinf(m_Yaw) * cosf(m_Pitch), sinf(m_Pitch), -1.0f * cosf(m_Yaw) * cosf(m_Pitch)};
 }
 
+void Camera::ChangeFov(float fov) {
+    if(fov < 40.0f) {
+        fov = 40.0f;
+    }
+
+    if(fov > 120.f) {
+        fov = 120.f;
+    }
+
+    m_Fov = fov;
+    UpdateSupportVectors();
+}
+
+const float Camera::GetFieldOfView() const {
+    return m_Fov;
+}
+
 

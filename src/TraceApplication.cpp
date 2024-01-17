@@ -16,7 +16,17 @@ void TraceApplication::Init() {
         controlStates.currentMousePosition = vec2f((float) x,(float) y);
     };
 
-//    m_MainWindow->OnMousePress = [this](int key, int )
+    m_MainWindow->OnMousePress = [this](int button, int state, int mods) {
+        if(button == GLFW_MOUSE_BUTTON_RIGHT && state == GLFW_PRESS)
+            controlStates.leftMouseButtonPressed = true;
+        else {
+            controlStates.leftMouseButtonPressed = false;
+        }
+    };
+
+    m_MainWindow->OnMouseScroll = [this](double x, double y) {
+        m_Camera->ChangeFov(m_Camera->GetFieldOfView() + y * 1);
+    };
 
     m_MainWindow->OnKeyInput = [this](int key, int scanCode, int action, int mods) {
         if(action == GLFW_REPEAT)
@@ -88,9 +98,10 @@ void TraceApplication::Update(float elapsedTime) {
 
     if(controlStates.enableMouse) {
         vec2f relativeMouseMovement = controlStates.currentMousePosition - controlStates.lastMousePosition;
-
-        if(relativeMouseMovement.x != 0 || relativeMouseMovement.y != 0) {
-            m_Camera->ChangeOrientation(relativeMouseMovement.x, relativeMouseMovement.y, elapsedTime);
+        if(controlStates.leftMouseButtonPressed) {
+            if (relativeMouseMovement.x != 0 || relativeMouseMovement.y != 0) {
+                m_Camera->ChangeOrientation(relativeMouseMovement.x, relativeMouseMovement.y, elapsedTime);
+            }
         }
     }
 

@@ -43,7 +43,7 @@ include_directories(lib/imgui)
 include_directories(lib/TinyGltf)
 
 if (WIN32)
-    include_directories(${PROJECT_NAME} PUBLIC lib/OpenCL/inc)
+#    include_directories(${PROJECT_NAME} PUBLIC lib/OpenCL/inc)
 
     list(APPEND GLFW_SURFACE_EXTENSION src/platform/GlfwSurfaceWindows.c)
 endif (WIN32)
@@ -82,7 +82,15 @@ add_executable(AdvancedGraphics ${IMGUI_SOURCES} ${GLFW_SURFACE_EXTENSION} ${TIN
         src/tracer/Triangle.cpp
         src/tracer/Triangle.h
         src/tracer/BonsaiBVH.cpp
-        src/tracer/BonsaiBVH.h)
+        src/tracer/BonsaiBVH.h
+        src/tracer/Mesh.cpp
+        src/tracer/Mesh.h
+        src/tracer/AreaLight.cpp
+        src/tracer/AreaLight.h
+        src/tracer/AreaLight.h
+        src/tracer/BonsaiMiniTreeSelector.cpp
+        src/tracer/BonsaiMiniTreeSelector.h
+)
 
 # Link static libraries
 target_link_libraries(${PROJECT_NAME} webgpu_dawn webgpu_glfw)
@@ -91,7 +99,7 @@ target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
 target_compile_options(${PROJECT_NAME} PRIVATE "${OpenMP_CXX_FLAGS}")
 
 if (WIN32)
-    target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/OpenCL/lib/OpenCL.lib)
+#    target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/OpenCL/lib/OpenCL.lib)
 endif (WIN32)
 
 if (APPLE)
