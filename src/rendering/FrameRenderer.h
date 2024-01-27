@@ -30,12 +30,9 @@ class FrameRenderer {
 
     std::string ReadShaderCode(const char * filePath);
 public:
-    FrameRenderer() = default;
-    FrameRenderer(FrameRenderer&&) = default;
-    FrameRenderer(FrameRenderer&) = default;
+    explicit FrameRenderer(const ContextResources&, WindowFrameSize);
     ~FrameRenderer();
 
-    void Init(const ContextResources&, WindowFrameSize);
     void Draw(const WGPURenderPassEncoder*);
 
     void ResizeAccumulatorTexture(WindowFrameSize);

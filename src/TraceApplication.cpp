@@ -40,8 +40,8 @@ void TraceApplication::Init() {
 
     m_Context.Init(m_MainWindow);
     m_Interface.Init(m_MainWindow, contextResources);
-    m_FrameRenderer.Init(contextResources, windowFrameSize);
 
+    m_FrameRenderer = new FrameRenderer(contextResources, windowFrameSize);
     m_PathTracer = new PathTracer("assets/skydome_night.hdr", windowFrameSize);
 
     m_Camera = m_PathTracer->GetCamera();
@@ -54,12 +54,15 @@ void TraceApplication::OnTick(float elapsedTime) {
 }
 
 void TraceApplication::Update(float elapsedTime) {
+    wgpuDeviceTick(*m_Context.GetContextResources().device);
+
     if(controlStates.m_ResizeRequested) {
         auto windowFrame = m_MainWindow->GetWindowFrameBuffer();
 
         m_Context.ResizeSwapChain(windowFrame);
-        m_FrameRenderer.ResizeAccumulatorTexture(windowFrame);
+        m_FrameRenderer->ResizeAccumulatorTexture(windowFrame);
         m_PathTracer->Resize(windowFrame);
+
         controlStates.m_ResizeRequested = false;
     }
 
@@ -107,9 +110,7 @@ void TraceApplication::Update(float elapsedTime) {
 
     controlStates.lastMousePosition = controlStates.currentMousePosition;
 
-    m_FrameRenderer.CopyAccumulatorToTexture(m_Accumulator->GetImage(0));
-
-    wgpuDeviceTick(*m_Context.GetContextResources().device);
+    m_FrameRenderer->CopyAccumulatorToTexture(m_Accumulator->GetImage(0));
 }
 
 void TraceApplication::Render() {
@@ -121,7 +122,7 @@ void TraceApplication::Render() {
     m_Interface.DrawUI();
     m_Interface.EndFrame();
 
-    m_FrameRenderer.Draw(renderPass);
+    m_FrameRenderer->Draw(renderPass);
 
     m_Interface.Render(renderPass);
 
@@ -130,14 +131,11 @@ void TraceApplication::Render() {
 }
 
 void TraceApplication::ShutDown() {
+    delete m_PathTracer;
+    delete m_FrameRenderer;
+
     m_Interface.Destroy();
     m_Context.Destroy();
 
-    delete m_PathTracer;
-
     Application::ShutDown();
 }
-
-
-
-

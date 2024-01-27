@@ -5,7 +5,7 @@
 #include "PathTracer.h"
 #include "../utils/Constants.h"
 
-#include <cmath>
+#include <math.h>
 
 PathTracer::PathTracer(const char *skyboxPath, const WindowFrameSize frameSize) : m_Film(frameSize) {
     skyBoxTexture = new Texture(skyboxPath);
@@ -38,18 +38,15 @@ Accumulator *PathTracer::GetAccumulator() {
 }
 
 void PathTracer::RenderFrame() {
-    frameIndex = 0;
-
     #pragma omp parallel for schedule(dynamic)
     for(int y = 0; y < m_Film.height; y++) {
         #pragma omp parallel for schedule(dynamic)
         for(int x = 0; x < m_Film.width; x++) {
-            //m_PrimaryRays.push_back(m_Camera.GetPrimaryRay(x, y));
             auto ray = m_Camera.GetPrimaryRay(x, y);
             auto& rayD = ray.GetDirection();
 
-            auto u = (uint32_t) ((float) skyBoxTexture->GetWidth() * atan2f( rayD.z, rayD.x ) * INV2PI - 0.5f);
-            auto v = (uint32_t) ((float) skyBoxTexture->GetHeight() * acosf( rayD.y ) * INVPI - 0.5f);
+            auto u = static_cast<int>(skyBoxTexture->GetWidth() * atan2f( rayD.z, rayD.x ) * INV2PI - 0.5f);
+            auto v = static_cast<int>(skyBoxTexture->GetHeight() * acosf( rayD.y ) * INVPI - 0.5f);
 
             auto sampleColor = skyBoxTexture->Sample(u, v);
 
@@ -58,7 +55,7 @@ void PathTracer::RenderFrame() {
     }
 }
 
-void PathTracer::GeneratePrimaryRays() {
+vec4f PathTracer::Trace(Ray& ray, RayTraceInfo& traceInfo) {
 
 }
 

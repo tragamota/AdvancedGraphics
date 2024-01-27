@@ -19,9 +19,7 @@ class PathTracer {
 
     WindowFrameSize m_Film;
 
-    std::vector<Ray> m_PrimaryRays;
-
-    void GeneratePrimaryRays();
+    vec4f Trace(Ray& ray, RayTraceInfo&);
 public:
     explicit PathTracer(const char* skyboxPath, WindowFrameSize frameSize);
     ~PathTracer();

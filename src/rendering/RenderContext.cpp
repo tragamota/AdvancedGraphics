@@ -20,9 +20,6 @@ void RenderContext::Init(const std::shared_ptr<Window>& window) {
 }
 
 void RenderContext::Destroy() {
-    wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
-    wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
-
     wgpuSwapChainRelease(m_SwapChain);
     wgpuSurfaceRelease(m_Surface);
     wgpuDeviceRelease(m_Device);
@@ -176,6 +173,7 @@ void RenderContext::SubmitCommandBuffer() {
     wgpuQueueSubmit(m_Queue, 1, &commandBuffer);
 
     wgpuCommandBufferRelease(commandBuffer);
+
     wgpuCommandEncoderRelease(m_CurrentCommandEncoder);
     wgpuRenderPassEncoderRelease(m_CurrentRenderPassEncoder);
 }

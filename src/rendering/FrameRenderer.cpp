@@ -19,7 +19,7 @@ constexpr const std::array<uint32_t, 6> FRAME_INDICES = {
     0, 1, 2, 0, 3, 2
 };
 
-void FrameRenderer::Init(const ContextResources& contextResources, const WindowFrameSize frameSize) {
+FrameRenderer::FrameRenderer(const ContextResources& contextResources, WindowFrameSize frameSize) {
     m_ContextResources = contextResources;
     m_Film = frameSize;
 

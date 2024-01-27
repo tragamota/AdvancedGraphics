@@ -35,8 +35,9 @@ private:
     ControlStates controlStates {};
 
     RenderContext m_Context;
-    FrameRenderer m_FrameRenderer;
     Interface m_Interface;
+
+    FrameRenderer* m_FrameRenderer;
 
     PathTracer* m_PathTracer;
     Accumulator* m_Accumulator;
